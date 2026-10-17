@@ -41,3 +41,43 @@ Es la capa visible: la aplicación web con la que interactúa la persona que pag
 - Muestra el estado del pago y el historial.
 
 No guarda llaves privadas ni credenciales: todo lo sensible vive en el `backend`.
+
+## Cómo correrlo
+
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # genera dist/, que es lo que sirve el contenedor
+```
+
+Stack: React + TypeScript + Vite + React Router. El estilo actual es funcional y provisional.
+
+### Flujo
+
+```
+Donante:   Landing ──► Ingresar / Registrarme ──► Causas ──► Detalle ──► Donar ──► Mis donaciones
+Fundación: Registrarme ──► Mis causas ──► Crear causa · Cerrar / Reactivar
+```
+
+- **Registro con rol:** al registrarse, la persona elige si es **donante** o **fundación**.
+  La wallet address es opcional por ahora.
+- **Causas:** una fundación publica una o varias causas (título, en qué se usará el dinero, lugar y meta).
+  Los donantes donan a una **causa concreta**, así cada donación queda ligada a su propósito.
+  Una causa cerrada sale del listado público y no recibe más donaciones.
+- Ver causas y su detalle es público; **donar** y **mis donaciones** piden sesión de donante, y
+  **mis causas** pide sesión de fundación. Tras ingresar, la persona vuelve a donde iba.
+
+### Modo demo
+
+Mientras el backend no exponga rutas HTTP, `src/services/api.ts` usa `mockApi.ts`, que guarda
+usuarios, fundaciones, causas y donaciones en el `localStorage` del navegador (no mueve dinero real).
+Para conectar el backend: crear un `httpApi` con las mismas funciones y elegirlo en `api.ts`
+cuando `VITE_API_URL` tenga valor (ver `.env.example`). Las páginas no cambian.
+
+```
+src/
+  services/   api.ts (punto único de datos), mockApi.ts (demo)
+  auth/       AuthContext (sesión), RequireAuth (rutas protegidas por rol)
+  pages/      Landing, Auth (login/registro), Causes, CauseDetail, Donate, MyDonations, MyCauses, CreateCause
+  components/ Layout, CauseCard, Progress
+```
