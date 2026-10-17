@@ -157,6 +157,27 @@ Según la configuración, el consentimiento se cierra de dos maneras:
 Para probar el callback de verdad en local, expón el puerto con un túnel
 (`cloudflared tunnel --url http://localhost:3000`) y pon esa URL en `PUBLIC_BASE_URL`.
 
+Dos detalles del callback que cuestan una tarde si se pasan por alto:
+
+- **`PUBLIC_BASE_URL` tiene que ser el dominio exacto del backend.** El authorization server
+  manda al donante a donde diga esa variable; si el dominio está mal, el donante autoriza y el
+  callback no llega a ningún sitio: la donación se queda en `awaiting_consent` hasta que la
+  cotización caduca.
+- **La ruta del callback debe llegar al backend, no al frontend.** Si nginx sirve el frontend en
+  `/` y solo proxea `/api/*`, pon `OP_INTERACT_FINISH_PATH=/api/op/callback` y no hace falta
+  tocar el proxy.
+
+Si una donación se quedó colgada pero el donante **sí** autorizó, se puede cerrar pasando los
+parámetros que el AS puso en el redirect (están en la barra de direcciones del navegador):
+
+```bash
+curl -s -X POST localhost:3000/api/donations/<donationId>/confirm   -H 'Content-Type: application/json'   -d '{"hash":"<hash>","interact_ref":"<interact_ref>"}'
+```
+
+Es el mismo camino verificado que el callback —comprueba el hash y consume el continue token una
+sola vez— y es también cómo una app móvil cierra el flujo cuando intercepta su propio deep link.
+Solo funciona si la cotización no ha caducado.
+
 ### 4. Los caminos que no son el feliz
 
 | Qué probar | Cómo |
