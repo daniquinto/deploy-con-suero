@@ -1,0 +1,12 @@
+# Logica de Negocio
+- Solo el admin puede registrar entidades gubernamentales
+- Una entidad/fundacion debe estar activa para operar
+- Una entidad solo ve y gestiona las fundaciones que ella registro
+- Una fundacion solo puede ser registrada por una entidad gubernamental
+- Una fundación nace en estado PENDIENTE y solo puede recibir donaciones cuando está ACTIVA.
+- Solo una fundación ACTIVA puede crear o publicar causas.
+- La fundación no puede gastar más de lo que le han liberado (lo gastado nunca supera lo liberado).
+- Todo donante tiene una cuenta de usuario.
+- El donante debe tener una wallet address válida en Open Payments para poder donar.
+- Monto mínimo de 1 USD, para que las comisiones no se coman la donación.
+- Las donaciones llegan a la wallet de la aplicación y se suministran a la fundación de forma controlada
