@@ -52,6 +52,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Normaliza la ruta (quita saltos de linea y espacios sobrantes del
+      # secreto, expande un ~ inicial) y se asegura de que la carpeta exista.
+      - name: Preparar carpeta en la VPS
+        id: prep
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script_stop: true
+          script: |
+            set -e
+            APP_DIR=$(printf '%s' "${{ secrets.VPS_APP_PATH }}" | tr -d '\r\n' | sed 's/[[:space:]]*$//')
+            case "$APP_DIR" in "~"*) APP_DIR="$HOME${APP_DIR#\~}" ;; esac
+            if [ -z "$APP_DIR" ]; then
+              echo "VPS_APP_PATH esta vacio. Definilo en los secretos del repo."
+              exit 1
+            fi
+            mkdir -p "$APP_DIR"
+            echo "Carpeta de despliegue lista: $APP_DIR"
+            docker --version
+            docker compose version
+
       - name: Copiar docker-compose.yml a la VPS
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -72,7 +96,10 @@ jobs:
           script_stop: false
           script: |
             set -e
-            cd "${{ secrets.VPS_APP_PATH }}"
+            APP_DIR=$(printf '%s' "${{ secrets.VPS_APP_PATH }}" | tr -d '\r\n' | sed 's/[[:space:]]*$//')
+            case "$APP_DIR" in "~"*) APP_DIR="$HOME${APP_DIR#\~}" ;; esac
+            mkdir -p "$APP_DIR"
+            cd "$APP_DIR"
 
             echo "==> Login en GHCR"
             echo "${{ secrets.GITHUB_TOKEN }}" \
