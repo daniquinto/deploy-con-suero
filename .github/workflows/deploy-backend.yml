@@ -103,7 +103,10 @@ jobs:
           mkdir -p stage/secrets
           printf '%s\n' "$BACKEND_ENV_FILE" > stage/.env
           printf '%s\n' "$OP_PRIVATE_KEY"   > stage/secrets/private.key
-          chmod 600 stage/.env stage/secrets/private.key
+          # 644, no 600: el scp-action corre en un contenedor con otro uid y su
+          # tar no puede leer archivos privados del usuario runner. El runner es
+          # efimero y exclusivo de este job; en la VPS se vuelven 600.
+          chmod 644 stage/.env stage/secrets/private.key
 
           # Falla temprano y con mensaje claro, en vez de un 401 en runtime.
           if ! grep -q 'BEGIN PRIVATE KEY' stage/secrets/private.key; then
