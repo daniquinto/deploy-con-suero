@@ -1,0 +1,473 @@
+{
+  "info": {
+    "name": "deploy-con-suero · donaciones (Open Payments)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Flujo completo de donación. Ejecuta las carpetas en orden.\n\nEl consentimiento ocurre en el navegador del donante, así que el flujo está partido en dos: las peticiones 1-2 preparan la donación y las 3-4 la cierran después de que la persona autorice.\n\nAntes de empezar: levanta el backend en modo polling, que es el que sirve para probar sin un dominio público:\n\n    PUBLIC_BASE_URL= npm start\n\nCon PUBLIC_BASE_URL definida el backend espera el callback del authorization server y 'Confirmar (polling)' devolverá 409; en ese caso usa 'Confirmar (rescate con hash)'."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "description": "Base del backend. En la VPS: https://deploy.szapatar.dev"
+    },
+    {
+      "key": "donorWallet",
+      "value": "https://ilp.interledger-test.dev/usd-santiago",
+      "description": "Wallet del donante. Acepta también $ilp.interledger-test.dev/usd-santiago"
+    },
+    {
+      "key": "amount",
+      "value": "1",
+      "description": "Monto humano: 1 = 1.00 USD"
+    },
+    {
+      "key": "donationId",
+      "value": "",
+      "description": "Lo rellena automáticamente 'Iniciar donación'"
+    },
+    {
+      "key": "interactRef",
+      "value": "",
+      "description": "Solo para el rescate: el interact_ref del redirect"
+    },
+    {
+      "key": "hash",
+      "value": "",
+      "description": "Solo para el rescate: el hash del redirect"
+    }
+  ],
+  "item": [
+    {
+      "name": "0 · Salud",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/healthz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "healthz"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('el backend responde', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Diagnóstico de Open Payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/op",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "op"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Valida la llave, que OP_KEY_ID esté en el JWKS y que las wallets resuelvan.",
+                  "// Si algún chequeo sale en rojo, arréglalo antes de seguir: todo lo demás dará 401.",
+                  "const b = pm.response.json();",
+                  "pm.test('conexión lista', () => pm.expect(b.ok).to.be.true);",
+                  "console.log('chequeos:', b.checks.map(c => `${c.name}=${c.ok}`).join(' '));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1 · Preparar",
+      "item": [
+        {
+          "name": "Datos del fondo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fund",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fund"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "pm.test('hay wallet de fondo', () => pm.expect(b.walletAddress).to.be.a('string'));",
+                  "console.log(`El dinero va a ${b.walletAddress} (${b.assetCode}).`);",
+                  "console.log(`Modo de consentimiento: ${b.consentMode}.`);",
+                  "if (b.consentMode === 'finish') {",
+                  "  console.warn('El backend espera el callback del AS. Para probar por Postman,');",
+                  "  console.warn('relanza el servidor con PUBLIC_BASE_URL= (modo polling).');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conectar wallet del donante",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/wallet/connect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "wallet",
+                "connect"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"walletAddress\": \"{{donorWallet}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "pm.test('la wallet existe y es usable', () => pm.expect(b.ok).to.be.true);",
+                  "if (!b.sameAsset) console.log(b.conversionNotice);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 · Donar",
+      "item": [
+        {
+          "name": "Iniciar donación",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Cambia en cada envío. Fíjala a un valor propio para probar la idempotencia."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/donations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "donations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"donorWalletAddress\": \"{{donorWallet}}\",\n  \"amount\": \"{{amount}}\",\n  \"amountMode\": \"send\",\n  \"description\": \"Donación de prueba desde Postman\",\n  \"donorName\": \"Santiago\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "pm.test('la donación queda esperando consentimiento', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "  pm.expect(b.status).to.eql('awaiting_consent');",
+                  "});",
+                  "",
+                  "// Se guarda para las siguientes peticiones de la colección.",
+                  "pm.collectionVariables.set('donationId', b.donationId);",
+                  "",
+                  "console.log(`El donante paga: ${b.amounts.debit.formatted}`);",
+                  "console.log(`El fondo recibe: ${b.amounts.receive.formatted}`);",
+                  "console.log('');",
+                  "console.log('ABRE ESTA URL EN EL NAVEGADOR Y ACEPTA EL CARGO:');",
+                  "console.log(b.interact.redirectUrl);",
+                  "console.log('');",
+                  "console.log(`La cotización caduca a las ${b.resources.quoteExpiresAt}: acepta ya.`);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 · Consentimiento",
+      "item": [
+        {
+          "name": "Confirmar (polling)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/donations/{{donationId}}/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "donations",
+                "{{donationId}}",
+                "confirm"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Envíala DESPUÉS de aceptar en el navegador.",
+                  "// 202 = el AS todavía no registra el consentimiento: reenvía en unos segundos.",
+                  "// 200 = grant continuado y pago saliente creado.",
+                  "const b = pm.response.json();",
+                  "if (pm.response.code === 202) {",
+                  "  console.log(`Aún sin consentimiento. Reintenta en ${b.retryAfterSeconds}s.`);",
+                  "} else {",
+                  "  pm.test('el pago se creó', () => pm.expect(b.status).to.be.oneOf(['sending', 'completed']));",
+                  "  console.log(`Estado: ${b.status}. Outgoing payment: ${b.resources.outgoingPaymentId}`);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirmar (rescate con hash)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/donations/{{donationId}}/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "donations",
+                "{{donationId}}",
+                "confirm"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hash\": \"{{hash}}\",\n  \"interact_ref\": \"{{interactRef}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Para cuando el backend está en modo `finish` y el redirect no le llegó",
+                  "// (dominio equivocado), o para una app móvil que intercepta su deep link.",
+                  "// Copia `hash` e `interact_ref` de la barra de direcciones del navegador",
+                  "// a las variables de la colección. Verifica el hash igual que el callback.",
+                  "const b = pm.response.json();",
+                  "pm.test('se cerró el consentimiento', () => pm.response.to.have.status(200));",
+                  "console.log(`Estado: ${b.status}`);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 · Seguimiento",
+      "item": [
+        {
+          "name": "Estado de la donación",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/donations/{{donationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "donations",
+                "{{donationId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Reenvía hasta que el estado sea final. El envío por ILP es asíncrono:",
+                  "// `sending` significa 'en curso', no 'fallido'.",
+                  "const b = pm.response.json();",
+                  "console.log(`Estado: ${b.status}` + (b.amounts.sent ? ` · enviado ${b.amounts.sent.formatted}` : ''));",
+                  "if (b.status === 'completed') {",
+                  "  console.log(`Recibido por el fondo: ${b.amounts.received?.formatted}`);",
+                  "}",
+                  "if (b.failureReason) console.log(`Motivo: ${b.failureReason}`);",
+                  "pm.test('no hay error de servidor', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar donación",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/donations/{{donationId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "donations",
+                "{{donationId}}",
+                "cancel"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"prueba desde Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Solo antes de que salga el dinero. Si ya está en `sending` devuelve 409:",
+                  "// un pago en curso no se cancela, se consulta.",
+                  "console.log(`Estado: ${pm.response.json().status ?? pm.response.json().error?.code}`);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listado (diagnóstico)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/donations?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "donations"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "console.log('Por estado:', JSON.stringify(pm.response.json().porEstado));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
