@@ -1,22 +1,54 @@
 -- =====================================================================
+-- Mano Abierta — Esquema de base de datos (PostgreSQL 13+)
+--
+-- Flujo del dinero (Open Payments):
+--   1. Donante (cualquier país/moneda) -> wallet de la APLICACIÓN.
+--   2. La aplicación LIBERA cada donación -> wallet de la FUNDACIÓN.
+--   3. La fundación paga a comercios o transfiere desde SU wallet,
+--      usando un grant que le otorga a la aplicación.
+--
+-- Montos en enteros + asset_code + asset_scale (formato Open Payments).
+--
+-- Estructura pensada para importadores de diagramas (dbdiagram.io,
+-- DrawSQL, pgAdmin ERD, DBeaver):
+--   1. Tipos ENUM
+--   2. Tablas (solo columnas, PK, NOT NULL, UNIQUE, DEFAULT)
+--   3. Llaves foráneas (ALTER TABLE)
+--   4. Reglas CHECK (ALTER TABLE)  -> omitir si el importador falla
+--   5. Índices                      -> omitir si el importador falla
+--   6. Triggers                     -> omitir si el importador falla
+--
+-- Ejecutar sobre una base vacía:  psql -d mano_abierta -f scripts.sql
+-- =====================================================================
+
+
+-- =====================================================================
 -- 1. TIPOS ENUM
 -- =====================================================================
-CREATE TYPE rol_usuario       AS ENUM ('ADMIN', 'GOBIERNO', 'FUNDACION', 'DONANTE');   -- ADMIN = dueño del negocio
-CREATE TYPE estado_usuario    AS ENUM ('ACTIVO', 'PENDIENTE', 'SUSPENDIDO');
-CREATE TYPE nivel_gobierno    AS ENUM ('NACIONAL', 'DEPARTAMENTAL', 'MUNICIPAL');
-CREATE TYPE estado_fundacion  AS ENUM ('PENDIENTE', 'ACTIVA', 'SUSPENDIDA');
-CREATE TYPE tipo_causa        AS ENUM ('EMERGENCIA', 'DESPLAZAMIENTO', 'DESASTRE', 'PROYECTO', 'ENFERMEDAD');
-CREATE TYPE estado_causa      AS ENUM ('BORRADOR', 'ACTIVA', 'PAUSADA', 'CERRADA');
-CREATE TYPE estado_donacion   AS ENUM ('PENDIENTE', 'AUTORIZADA', 'COMPLETADA', 'FALLIDA', 'CANCELADA');
-CREATE TYPE estado_liberacion AS ENUM ('PENDIENTE', 'LIBERADA', 'FALLIDA');
-CREATE TYPE tipo_gasto        AS ENUM ('COMPRA', 'TRANSFERENCIA');
-CREATE TYPE categoria_gasto   AS ENUM ('ALIMENTOS', 'MEDICINAS', 'HIGIENE', 'MATERIALES', 'TRANSPORTE', 'ALOJAMIENTO', 'EFECTIVO', 'OTRO');
-CREATE TYPE estado_gasto      AS ENUM ('PENDIENTE', 'COMPLETADO', 'RECHAZADO', 'FALLIDO');
-CREATE TYPE tipo_evidencia    AS ENUM ('FACTURA', 'FOTO', 'COMPROBANTE_PAGO', 'ACTA_ENTREGA', 'OTRO');
-CREATE TYPE origen_rechazo    AS ENUM ('SISTEMA', 'OPEN_PAYMENTS', 'GOBIERNO', 'ADMIN');
-CREATE TYPE motivo_rechazo    AS ENUM ('LIMITE_GRANT_EXCEDIDO', 'GRANT_INVALIDO', 'FUNDACION_INACTIVA',
-                                       'SALDO_INSUFICIENTE', 'CAUSA_INACTIVA', 'CATEGORIA_NO_PERMITIDA',
-                                       'EVIDENCIA_INVALIDA', 'SOSPECHA_FRAUDE', 'ERROR_TECNICO', 'OTRO');
+CREATE TYPE rol_usuario         AS ENUM ('ADMIN', 'GOBIERNO', 'FUNDACION', 'DONANTE');   -- ADMIN = dueño del negocio
+CREATE TYPE estado_usuario      AS ENUM ('ACTIVO', 'PENDIENTE', 'SUSPENDIDO');
+CREATE TYPE nivel_gobierno      AS ENUM ('NACIONAL', 'DEPARTAMENTAL', 'MUNICIPAL');
+CREATE TYPE estado_fundacion    AS ENUM ('PENDIENTE', 'ACTIVA', 'SUSPENDIDA');
+-- CC cédula · CE cédula de extranjería · TI tarjeta de identidad · PA pasaporte
+-- PPT permiso por protección temporal · DNI documento extranjero
+CREATE TYPE tipo_documento      AS ENUM ('CC', 'CE', 'TI', 'PA', 'PPT', 'DNI');
+CREATE TYPE genero              AS ENUM ('F', 'M', 'NB', 'ND');                         -- ND = prefiere no decirlo
+CREATE TYPE tipo_identificacion AS ENUM ('NIT', 'RUT', 'REGISTRO_EXTRANJERO', 'OTRO');  -- de la fundación
+-- Emergencias y también categorías de proyectos sociales que muestra la app
+CREATE TYPE tipo_causa          AS ENUM ('EMERGENCIA', 'DESASTRE', 'INUNDACION', 'SISMO', 'INCENDIO',
+                                         'DESPLAZAMIENTO', 'PROYECTO', 'ENFERMEDAD',
+                                         'COMUNIDADES', 'EDUCACION', 'AMBIENTE', 'SALUD');
+CREATE TYPE estado_causa        AS ENUM ('BORRADOR', 'ACTIVA', 'PAUSADA', 'CERRADA');
+CREATE TYPE estado_donacion     AS ENUM ('PENDIENTE', 'AUTORIZADA', 'COMPLETADA', 'FALLIDA', 'CANCELADA');
+CREATE TYPE estado_liberacion   AS ENUM ('PENDIENTE', 'LIBERADA', 'FALLIDA');
+CREATE TYPE tipo_gasto          AS ENUM ('COMPRA', 'TRANSFERENCIA');
+CREATE TYPE categoria_gasto     AS ENUM ('ALIMENTOS', 'MEDICINAS', 'HIGIENE', 'MATERIALES', 'TRANSPORTE', 'ALOJAMIENTO', 'EFECTIVO', 'OTRO');
+CREATE TYPE estado_gasto        AS ENUM ('PENDIENTE', 'COMPLETADO', 'RECHAZADO', 'FALLIDO');
+CREATE TYPE tipo_evidencia      AS ENUM ('FACTURA', 'FOTO', 'COMPROBANTE_PAGO', 'ACTA_ENTREGA', 'OTRO');
+CREATE TYPE origen_rechazo      AS ENUM ('SISTEMA', 'OPEN_PAYMENTS', 'GOBIERNO', 'ADMIN');
+CREATE TYPE motivo_rechazo      AS ENUM ('LIMITE_GRANT_EXCEDIDO', 'GRANT_INVALIDO', 'FUNDACION_INACTIVA',
+                                         'SALDO_INSUFICIENTE', 'CAUSA_INACTIVA', 'CATEGORIA_NO_PERMITIDA',
+                                         'EVIDENCIA_INVALIDA', 'SOSPECHA_FRAUDE', 'ERROR_TECNICO', 'OTRO');
 
 
 -- =====================================================================
@@ -26,10 +58,10 @@ CREATE TYPE motivo_rechazo    AS ENUM ('LIMITE_GRANT_EXCEDIDO', 'GRANT_INVALIDO'
 -- Cuenta de acceso (admin, gobierno, fundación o donante)
 CREATE TABLE usuario (
     id              UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
-    email           VARCHAR(255)    NOT NULL UNIQUE,
+    email           VARCHAR(255)    NOT NULL UNIQUE,   -- siempre en minúsculas (ver CHECK)
     telefono        VARCHAR(30),
-    password_hash   VARCHAR(255)    NOT NULL,
-    nombre          VARCHAR(150)    NOT NULL,
+    password_hash   VARCHAR(255)    NOT NULL,          -- bcrypt
+    nombre          VARCHAR(150)    NOT NULL,          -- nombre para mostrar
     rol             rol_usuario     NOT NULL,
     estado          estado_usuario  NOT NULL DEFAULT 'PENDIENTE',
     ultimo_acceso   TIMESTAMPTZ,
@@ -52,36 +84,60 @@ CREATE TABLE entidad_gubernamental (
     actualizado_en  TIMESTAMPTZ     NOT NULL DEFAULT now()
 );
 
--- HU: la entidad registra y activa fundaciones con su wallet
+-- HU: la fundación se registra y una entidad la activa
+-- (se registra sola desde la app; entidad_gubernamental_id se asigna al activarla)
 CREATE TABLE fundacion (
-    id                        UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
-    usuario_id                UUID              NOT NULL UNIQUE,
-    entidad_gubernamental_id  UUID              NOT NULL,     -- quien la registró y la activa
-    razon_social              VARCHAR(200)      NOT NULL,
-    nit                       VARCHAR(20)       NOT NULL UNIQUE,
+    id                        UUID                 PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id                UUID                 NOT NULL UNIQUE,
+    entidad_gubernamental_id  UUID,                -- entidad que la activa y la gestiona
+    razon_social              VARCHAR(200)         NOT NULL,
+    persona_responsable       VARCHAR(150)         NOT NULL,
+    tipo_identificacion       tipo_identificacion  NOT NULL DEFAULT 'NIT',
+    nit                       VARCHAR(20)          NOT NULL,   -- número de identificación
     descripcion               TEXT,
     logo_url                  VARCHAR(500),
     sitio_web                 VARCHAR(300),
-    pais                      VARCHAR(2)        NOT NULL DEFAULT 'CO',
+    pais                      VARCHAR(2)           NOT NULL DEFAULT 'CO',
     departamento              VARCHAR(100),
     ciudad                    VARCHAR(100),
+    -- Wallet donde recibe el dinero liberado y desde la que paga (se agrega después del registro)
+    wallet_address            VARCHAR(500)         UNIQUE,
+    asset_code                VARCHAR(3)           NOT NULL DEFAULT 'COP',
+    asset_scale               SMALLINT             NOT NULL DEFAULT 2,
+    -- Grant que la fundación otorga a la app para pagar a comercios
+    grant_access_token        TEXT,                -- cifrado
+    grant_manage_url          VARCHAR(500),        -- para rotar el token
+    grant_continue_uri        VARCHAR(500),
+    grant_limite              BIGINT,              -- tope por intervalo
+    grant_intervalo           VARCHAR(60),         -- ISO 8601, ej. R/2026-10-17T00:00:00Z/P1W
+    grant_otorgado_en         TIMESTAMPTZ,
     -- Activación por la entidad gubernamental
-    estado                    estado_fundacion  NOT NULL DEFAULT 'PENDIENTE',
+    estado                    estado_fundacion     NOT NULL DEFAULT 'PENDIENTE',
     activada_en               TIMESTAMPTZ,
-    creado_en                 TIMESTAMPTZ       NOT NULL DEFAULT now(),
-    actualizado_en            TIMESTAMPTZ       NOT NULL DEFAULT now()
+    creado_en                 TIMESTAMPTZ          NOT NULL DEFAULT now(),
+    actualizado_en            TIMESTAMPTZ          NOT NULL DEFAULT now(),
+    UNIQUE (tipo_identificacion, nit)
 );
 
 -- Persona o empresa que dona (siempre con cuenta)
 CREATE TABLE donante (
-    id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-    usuario_id        UUID          NOT NULL UNIQUE,
-    nombre_publico    VARCHAR(150),
-    pais              VARCHAR(2)    NOT NULL,
-    wallet_address    VARCHAR(500)  NOT NULL,   -- wallet desde la que paga (cualquier país)
+    id                UUID            PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id        UUID            NOT NULL UNIQUE,
+    nombres           VARCHAR(80)     NOT NULL,
+    apellidos         VARCHAR(80)     NOT NULL,
+    tipo_documento    tipo_documento  NOT NULL,
+    numero_documento  VARCHAR(20)     NOT NULL,
+    genero            genero          NOT NULL,
+    nombre_publico    VARCHAR(150),             -- cómo aparece en las donaciones; NULL = su nombre
+    pais              VARCHAR(2)      NOT NULL DEFAULT 'CO',
+    -- Wallet desde la que paga (cualquier país). Opcional al registrarse;
+    -- la app la exige al momento de donar.
+    wallet_address    VARCHAR(500),
     moneda_preferida  VARCHAR(3),
-    es_anonimo        BOOLEAN       NOT NULL DEFAULT FALSE,
-    creado_en         TIMESTAMPTZ   NOT NULL DEFAULT now()
+    es_anonimo        BOOLEAN         NOT NULL DEFAULT FALSE,
+    creado_en         TIMESTAMPTZ     NOT NULL DEFAULT now(),
+    actualizado_en    TIMESTAMPTZ     NOT NULL DEFAULT now(),
+    UNIQUE (tipo_documento, numero_documento)
 );
 
 -- HU: ver los desastres más recientes en el mundo
@@ -96,8 +152,12 @@ CREATE TABLE causa (
     pais             VARCHAR(2)    NOT NULL,
     region           VARCHAR(100),
     ciudad           VARCHAR(100),
+    latitud          NUMERIC(9, 6),
+    longitud         NUMERIC(9, 6),
     fecha_evento     TIMESTAMPTZ   NOT NULL,          -- cuándo ocurrió el desastre (orden "más recientes")
     imagen_url       VARCHAR(500),
+    beneficiarios    INTEGER,                         -- personas o familias que recibirán la ayuda
+    uso_fondos       TEXT[]        NOT NULL DEFAULT '{}',   -- en qué se usará el dinero (para el donante)
     -- Montos en la moneda de la fundación
     asset_code       VARCHAR(3)    NOT NULL,
     asset_scale      SMALLINT      NOT NULL,
@@ -105,6 +165,7 @@ CREATE TABLE causa (
     monto_recaudado  BIGINT        NOT NULL DEFAULT 0,   -- donado (en la wallet de la app)
     monto_liberado   BIGINT        NOT NULL DEFAULT 0,   -- transferido a la wallet de la fundación
     monto_gastado    BIGINT        NOT NULL DEFAULT 0,   -- pagado a comercios o transferido
+    numero_donantes  INTEGER       NOT NULL DEFAULT 0,   -- contador, se actualiza con cada donación completada
     estado           estado_causa  NOT NULL DEFAULT 'BORRADOR',
     fecha_inicio     TIMESTAMPTZ   NOT NULL DEFAULT now(),
     fecha_fin        TIMESTAMPTZ,
@@ -121,11 +182,28 @@ CREATE TABLE donacion (
     monto_enviado                    BIGINT             NOT NULL,
     moneda_enviada                   VARCHAR(3)         NOT NULL,
     escala_enviada                   SMALLINT           NOT NULL,
-    -- Lo que recibe la causa
+    -- Lo que recibe la causa (moneda de la fundación)
     monto_recibido                   BIGINT,
+    moneda_recibida                  VARCHAR(3)         NOT NULL,
+    escala_recibida                  SMALLINT           NOT NULL,
+    tasa_cambio                      NUMERIC(20, 8),
+    es_recurrente                    BOOLEAN            NOT NULL DEFAULT FALSE,
+    intervalo                        VARCHAR(60),       -- ISO 8601, ej. R/2026-10-15T00:00:00Z/P1M
     mensaje                          VARCHAR(280),
+    -- Paso 1: donante -> wallet de la app
+    incoming_payment_url             VARCHAR(500),
+    quote_url                        VARCHAR(500),
+    outgoing_payment_url             VARCHAR(500),
+    grant_continue_uri               VARCHAR(500),
     estado                           estado_donacion    NOT NULL DEFAULT 'PENDIENTE',
     completada_en                    TIMESTAMPTZ,
+    -- Paso 2: wallet de la app -> wallet de la fundación (liberación controlada)
+    estado_liberacion                estado_liberacion  NOT NULL DEFAULT 'PENDIENTE',
+    liberacion_incoming_payment_url  VARCHAR(500),
+    liberacion_outgoing_payment_url  VARCHAR(500),
+    liberada_en                      TIMESTAMPTZ,
+    -- HU: ver en qué se gastó mi dinero
+    token_trazabilidad               VARCHAR(64)        NOT NULL UNIQUE,
     creado_en                        TIMESTAMPTZ        NOT NULL DEFAULT now()
 );
 
@@ -137,11 +215,20 @@ CREATE TABLE gasto (
     categoria             categoria_gasto  NOT NULL,
     descripcion           VARCHAR(500)     NOT NULL,
     receptor_nombre       VARCHAR(200)     NOT NULL,   -- comercio o persona
+    receptor_nit          VARCHAR(20),
     receptor_wallet       VARCHAR(500)     NOT NULL,
+    beneficiario_ref      VARCHAR(100),                -- código de la familia, sin datos personales
     ciudad                VARCHAR(100),
     monto                 BIGINT           NOT NULL,
+    asset_code            VARCHAR(3)       NOT NULL,
+    asset_scale           SMALLINT         NOT NULL,
+    incoming_payment_url  VARCHAR(500),
+    quote_url             VARCHAR(500),
+    outgoing_payment_url  VARCHAR(500),
     estado                estado_gasto     NOT NULL DEFAULT 'PENDIENTE',
+    visible_publico       BOOLEAN          NOT NULL DEFAULT TRUE,
     creado_en             TIMESTAMPTZ      NOT NULL DEFAULT now(),
+    ejecutado_en          TIMESTAMPTZ
 );
 
 -- Soportes del gasto (factura, foto, acta)
@@ -150,9 +237,11 @@ CREATE TABLE evidencia_gasto (
     gasto_id        UUID            NOT NULL,
     tipo            tipo_evidencia  NOT NULL,
     archivo_url     VARCHAR(500)    NOT NULL,
+    hash_archivo    VARCHAR(128),               -- SHA-256 para integridad
     descripcion     VARCHAR(500),
     verificada      BOOLEAN         NOT NULL DEFAULT FALSE,
     verificada_por  UUID,                       -- usuario gobierno/admin que la valida
+    verificada_en   TIMESTAMPTZ,
     creado_en       TIMESTAMPTZ     NOT NULL DEFAULT now()
 );
 
@@ -162,7 +251,8 @@ CREATE TABLE rechazo_gasto (
     gasto_id       UUID            NOT NULL UNIQUE,
     origen         origen_rechazo  NOT NULL,
     motivo         motivo_rechazo  NOT NULL,
-    detalle        TEXT,                      -- error devuelto por Open Payments, si aplica
+    detalle        TEXT,
+    respuesta_api  JSONB,                       -- error devuelto por Open Payments, si aplica
     rechazado_por  UUID,                        -- NULL si fue automático
     creado_en      TIMESTAMPTZ     NOT NULL DEFAULT now()
 );
@@ -170,6 +260,9 @@ CREATE TABLE rechazo_gasto (
 
 -- =====================================================================
 -- 3. LLAVES FORÁNEAS
+-- Sin ON DELETE CASCADE hacia usuario a propósito: una cuenta con
+-- donaciones o gastos no se borra, se desactiva (estado = 'SUSPENDIDO'),
+-- para no perder la trazabilidad.
 -- =====================================================================
 ALTER TABLE entidad_gubernamental ADD CONSTRAINT fk_entidad_usuario
     FOREIGN KEY (usuario_id) REFERENCES usuario (id);
@@ -214,13 +307,23 @@ ALTER TABLE rechazo_gasto ADD CONSTRAINT fk_rechazo_usuario
 -- =====================================================================
 -- 4. REGLAS CHECK  (omitir si el importador de diagramas falla)
 -- =====================================================================
+ALTER TABLE usuario ADD CONSTRAINT chk_usuario_email_minusculas
+    CHECK (email = lower(email));
+
+-- Una fundación activa tiene fecha de activación.
 ALTER TABLE fundacion ADD CONSTRAINT chk_fundacion_activa
     CHECK (estado <> 'ACTIVA' OR activada_en IS NOT NULL);
+
+ALTER TABLE donante ADD CONSTRAINT chk_donante_documento
+    CHECK (numero_documento ~ '^[0-9A-Za-z.-]{4,20}$');
 
 ALTER TABLE causa ADD CONSTRAINT chk_causa_meta
     CHECK (meta_monto > 0);
 ALTER TABLE causa ADD CONSTRAINT chk_causa_fechas
     CHECK (fecha_fin IS NULL OR fecha_fin > fecha_inicio);
+ALTER TABLE causa ADD CONSTRAINT chk_causa_contadores
+    CHECK (numero_donantes >= 0 AND (beneficiarios IS NULL OR beneficiarios > 0));
+-- Lo liberado nunca supera lo recaudado y lo gastado nunca supera lo liberado.
 ALTER TABLE causa ADD CONSTRAINT chk_causa_saldos
     CHECK (monto_liberado <= monto_recaudado AND monto_gastado <= monto_liberado);
 
@@ -228,6 +331,8 @@ ALTER TABLE donacion ADD CONSTRAINT chk_donacion_monto
     CHECK (monto_enviado > 0);
 ALTER TABLE donacion ADD CONSTRAINT chk_donacion_recurrente
     CHECK (es_recurrente = FALSE OR intervalo IS NOT NULL);
+ALTER TABLE donacion ADD CONSTRAINT chk_donacion_liberada
+    CHECK (estado_liberacion <> 'LIBERADA' OR (estado = 'COMPLETADA' AND liberada_en IS NOT NULL));
 
 ALTER TABLE gasto ADD CONSTRAINT chk_gasto_monto
     CHECK (monto > 0);
@@ -250,3 +355,21 @@ CREATE INDEX idx_donacion_liberacion   ON donacion (estado_liberacion);
 CREATE INDEX idx_gasto_causa           ON gasto (causa_id);
 CREATE INDEX idx_gasto_estado          ON gasto (estado);
 CREATE INDEX idx_evidencia_gasto       ON evidencia_gasto (gasto_id);
+
+
+-- =====================================================================
+-- 6. TRIGGERS  (omitir si el importador de diagramas falla)
+-- Mantiene actualizado_en al día en cada UPDATE.
+-- =====================================================================
+CREATE FUNCTION fn_set_actualizado_en() RETURNS trigger AS $$
+BEGIN
+    NEW.actualizado_en := now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_usuario_actualizado    BEFORE UPDATE ON usuario               FOR EACH ROW EXECUTE FUNCTION fn_set_actualizado_en();
+CREATE TRIGGER trg_entidad_actualizado    BEFORE UPDATE ON entidad_gubernamental FOR EACH ROW EXECUTE FUNCTION fn_set_actualizado_en();
+CREATE TRIGGER trg_fundacion_actualizado  BEFORE UPDATE ON fundacion             FOR EACH ROW EXECUTE FUNCTION fn_set_actualizado_en();
+CREATE TRIGGER trg_donante_actualizado    BEFORE UPDATE ON donante               FOR EACH ROW EXECUTE FUNCTION fn_set_actualizado_en();
+CREATE TRIGGER trg_causa_actualizado      BEFORE UPDATE ON causa                 FOR EACH ROW EXECUTE FUNCTION fn_set_actualizado_en();
