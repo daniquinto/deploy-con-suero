@@ -32,7 +32,8 @@ En una emergencia, las donaciones **tardan semanas** en llegar a las familias af
 Mano Abierta usa **Open Payments** para que:
 
 - 🌎 **Cualquier persona done desde cualquier país**, en su propia moneda, con la conversión cotizada antes de confirmar.
-- ⚡ **Las fundaciones gasten la ayuda en minutos** en comercios locales, directamente desde la aplicación.
+- 🏦 **La aplicación administre los fondos**: todo el dinero llega a la wallet de Mano Abierta, y cada causa lleva su propio saldo. Las fundaciones no tienen wallet ni manejan dinero directamente.
+- ⚡ **Las fundaciones ordenen gastos en minutos** a comercios locales desde la aplicación, y Mano Abierta ejecuta el pago con el saldo de la causa.
 - 🔍 **Cada gasto quede rastreado**: el donante recibe un enlace público de trazabilidad y ve en qué categoría, en qué comercio, por qué monto y con qué evidencia se usó su dinero.
 
 ## El impacto
@@ -46,7 +47,7 @@ Mano Abierta usa **Open Payments** para que:
 | | Pilar | Qué significa |
 | :---: | --- | --- |
 | 🤲 | **Facilidad** | Donar sin barreras: elige una causa, ve el monto en tu moneda y autoriza desde tu billetera. |
-| 🔎 | **Transparencia** | Información clara y verificable sobre lo recaudado, lo liberado y lo gastado. |
+| 🔎 | **Transparencia** | Información clara y verificable sobre lo recaudado y lo gastado en cada causa. |
 | 💚 | **Impacto** | Los aportes se conectan con necesidades reales y los resultados se comunican con responsabilidad. |
 
 **Valores:** Transparencia · Empatía · Responsabilidad · Agilidad · Integridad · Colaboración
@@ -59,7 +60,7 @@ Mano Abierta usa **Open Payments** para que:
 | --- | --- | --- |
 | **Administrador** | Operador de la plataforma | Registrar entidades gubernamentales, suspender cuentas y auditar. |
 | **Entidad gubernamental** | Oficina de gestión del riesgo municipal, departamental o nacional | Registrar, activar y suspender fundaciones; verificar evidencias; rechazar gastos. |
-| **Fundación** | Organización que atiende la emergencia | Crear causas, recibir fondos, pagar a comercios, transferir y subir evidencias. |
+| **Fundación** | Organización que atiende la emergencia | Crear causas, ordenar pagos a comercios con el saldo de sus causas y subir evidencias. No tiene wallet propia. |
 | **Donante** | Persona o empresa en cualquier país | Ver causas recientes, donar en su moneda y ver en qué se gastó su dinero. |
 
 Esta cadena de confianza (administrador → entidad gubernamental → fundación) garantiza que **solo fundaciones verificadas y activas** puedan recibir donaciones.
@@ -70,19 +71,19 @@ Esta cadena de confianza (administrador → entidad gubernamental → fundación
 
 ```mermaid
 flowchart LR
-    D["🌎 Donante<br/>(cualquier moneda)"] -- "1. Donación<br/>quote + grant GNAP" --> A["🤲 Wallet<br/>Mano Abierta"]
-    A -- "2. Liberación" --> F["🏠 Wallet<br/>Fundación"]
-    F -- "3. Gasto con grant<br/>(límite e intervalo)" --> C["🏪 Comercio local"]
-    C -. "4. Evidencias<br/>(factura, foto, acta)" .-> T["🔍 Enlace público<br/>de trazabilidad"]
+    D["🌎 Donante<br/>(cualquier moneda)"] -- "1. Donación<br/>quote + grant GNAP" --> A["🤲 Wallet<br/>Mano Abierta<br/>(saldo por causa)"]
+    F["🏠 Fundación<br/>(sin wallet)"] -. "2. Ordena un gasto<br/>de su causa" .-> A
+    A -- "3. Pago<br/>Open Payments" --> C["🏪 Comercio local"]
+    F -. "4. Evidencias<br/>(factura, foto, acta)" .-> T["🔍 Enlace público<br/>de trazabilidad"]
     T -. "consulta" .-> D
 ```
 
-1. **Donación:** se crea un *incoming payment* en la wallet de la aplicación, un *quote* en la wallet del donante y un *grant* interactivo. El donante aprueba en su billetera y se ejecuta el *outgoing payment*.
-2. **Liberación:** cuando la donación se completa, se libera a la wallet de la fundación.
-3. **Gasto:** la fundación paga a comercios o personas usando el *grant* que otorgó, con límite e intervalo definidos.
-4. **Bloqueo:** si un pago supera el límite del grant o el saldo liberado, se rechaza y queda registrado con su motivo.
+1. **Donación:** se crea un *incoming payment* en la wallet de Mano Abierta, un *quote* en la wallet del donante y un *grant* interactivo. El donante aprueba en su billetera, se ejecuta el *outgoing payment* y el monto se suma al saldo de la causa.
+2. **Orden de gasto:** la fundación registra en la aplicación un pago a un comercio o persona, con cargo al saldo de una de sus causas. La fundación nunca recibe ni custodia el dinero.
+3. **Pago:** Mano Abierta crea el *incoming payment* en la wallet del comercio y paga desde su propia wallet.
+4. **Bloqueo:** si un gasto supera el saldo disponible de la causa, se rechaza y queda registrado con su motivo.
 
-Lo liberado **nunca supera** lo recaudado, y lo gastado **nunca supera** lo liberado.
+El dinero **siempre está en la wallet de la aplicación** hasta que llega al comercio, y lo gastado en una causa **nunca supera** lo recaudado.
 
 ---
 
@@ -153,9 +154,10 @@ flowchart LR
 
 - 🔐 Contraseñas con hash lento y sal; autenticación con tokens con expiración y control de acceso por rol.
 - 🗝️ Llave privada y tokens de grant fuera del repositorio y del cliente.
+- 🏦 Una sola wallet custodia los fondos: la de la aplicación. Ni fundaciones ni entidades manejan dinero directamente.
 - ✍️ Peticiones a Open Payments firmadas con HTTP Message Signatures.
 - 💰 Dinero siempre como enteros, nunca como punto flotante.
-- 🔁 Operaciones idempotentes: un reintento no crea un segundo pago ni libera dos veces.
+- 🔁 Operaciones idempotentes: un reintento no crea un segundo pago ni cobra dos veces la misma donación.
 - 🧾 Registros financieros inmutables y evidencias con hash SHA-256.
 - 🙈 La trazabilidad pública nunca expone datos personales de beneficiarios.
 
