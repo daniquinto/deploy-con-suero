@@ -109,6 +109,16 @@ jobs:
             : "${FRONTEND_HOST_PORT:=8080}"
             echo "==> Desplegando $FRONTEND_IMAGE en el puerto $FRONTEND_HOST_PORT"
 
+            # Un contenedor viejo (de otra definicion o de un run manual)
+            # puede seguir reteniendo el puerto. Se libera antes de levantar.
+            echo "==> Liberando el puerto $FRONTEND_HOST_PORT si quedo tomado"
+            docker compose down --remove-orphans 2>/dev/null || true
+            STALE=$(docker ps -aq --filter "publish=$FRONTEND_HOST_PORT")
+            if [ -n "$STALE" ]; then
+              echo "Removiendo contenedores que retienen el puerto: $STALE"
+              docker rm -f $STALE
+            fi
+
             docker compose pull
             docker compose up -d --no-build --remove-orphans
 
