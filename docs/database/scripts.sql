@@ -86,17 +86,6 @@ CREATE TABLE fundacion (
     pais                      VARCHAR(2)        NOT NULL DEFAULT 'CO',
     departamento              VARCHAR(100),
     ciudad                    VARCHAR(100),
-    -- Wallet donde recibe el dinero liberado y desde la que paga
-    wallet_address            VARCHAR(500)      NOT NULL UNIQUE,
-    asset_code                VARCHAR(3)        NOT NULL DEFAULT 'COP',
-    asset_scale               SMALLINT          NOT NULL DEFAULT 2,
-    -- Grant que la fundación otorga a la app para pagar a comercios
-    grant_access_token        TEXT,                           -- cifrado
-    grant_manage_url          VARCHAR(500),                   -- para rotar el token
-    grant_continue_uri        VARCHAR(500),
-    grant_limite              BIGINT,                         -- tope por intervalo
-    grant_intervalo           VARCHAR(60),                    -- ISO 8601, ej. R/2026-10-17T00:00:00Z/P1W
-    grant_otorgado_en         TIMESTAMPTZ,
     -- Activación por la entidad gubernamental
     estado                    estado_fundacion  NOT NULL DEFAULT 'PENDIENTE',
     activada_en               TIMESTAMPTZ,
@@ -128,8 +117,6 @@ CREATE TABLE causa (
     pais             VARCHAR(2)    NOT NULL,
     region           VARCHAR(100),
     ciudad           VARCHAR(100),
-    latitud          NUMERIC(9, 6),
-    longitud         NUMERIC(9, 6),
     fecha_evento     TIMESTAMPTZ   NOT NULL,          -- cuándo ocurrió el desastre (orden "más recientes")
     imagen_url       VARCHAR(500),
     -- Montos en la moneda de la fundación
@@ -157,26 +144,9 @@ CREATE TABLE donacion (
     escala_enviada                   SMALLINT           NOT NULL,
     -- Lo que recibe la causa
     monto_recibido                   BIGINT,
-    moneda_recibida                  VARCHAR(3)         NOT NULL,
-    escala_recibida                  SMALLINT           NOT NULL,
-    tasa_cambio                      NUMERIC(20, 8),
-    es_recurrente                    BOOLEAN            NOT NULL DEFAULT FALSE,
-    intervalo                        VARCHAR(60),
     mensaje                          VARCHAR(280),
-    -- Paso 1: donante -> wallet de la app
-    incoming_payment_url             VARCHAR(500),
-    quote_url                        VARCHAR(500),
-    outgoing_payment_url             VARCHAR(500),
-    grant_continue_uri               VARCHAR(500),
     estado                           estado_donacion    NOT NULL DEFAULT 'PENDIENTE',
     completada_en                    TIMESTAMPTZ,
-    -- Paso 2: wallet de la app -> wallet de la fundación
-    estado_liberacion                estado_liberacion  NOT NULL DEFAULT 'PENDIENTE',
-    liberacion_incoming_payment_url  VARCHAR(500),
-    liberacion_outgoing_payment_url  VARCHAR(500),
-    liberada_en                      TIMESTAMPTZ,
-    -- HU: ver en qué se gastó mi dinero
-    token_trazabilidad               VARCHAR(64)        NOT NULL UNIQUE,
     creado_en                        TIMESTAMPTZ        NOT NULL DEFAULT now()
 );
 
@@ -188,20 +158,11 @@ CREATE TABLE gasto (
     categoria             categoria_gasto  NOT NULL,
     descripcion           VARCHAR(500)     NOT NULL,
     receptor_nombre       VARCHAR(200)     NOT NULL,   -- comercio o persona
-    receptor_nit          VARCHAR(20),
     receptor_wallet       VARCHAR(500)     NOT NULL,
-    beneficiario_ref      VARCHAR(100),                -- código de la familia, sin datos personales
     ciudad                VARCHAR(100),
     monto                 BIGINT           NOT NULL,
-    asset_code            VARCHAR(3)       NOT NULL,
-    asset_scale           SMALLINT         NOT NULL,
-    incoming_payment_url  VARCHAR(500),
-    quote_url             VARCHAR(500),
-    outgoing_payment_url  VARCHAR(500),
     estado                estado_gasto     NOT NULL DEFAULT 'PENDIENTE',
-    visible_publico       BOOLEAN          NOT NULL DEFAULT TRUE,
     creado_en             TIMESTAMPTZ      NOT NULL DEFAULT now(),
-    ejecutado_en          TIMESTAMPTZ
 );
 
 -- Soportes del gasto (factura, foto, acta)
@@ -210,11 +171,9 @@ CREATE TABLE evidencia_gasto (
     gasto_id        UUID            NOT NULL,
     tipo            tipo_evidencia  NOT NULL,
     archivo_url     VARCHAR(500)    NOT NULL,
-    hash_archivo    VARCHAR(128),               -- SHA-256 para integridad
     descripcion     VARCHAR(500),
     verificada      BOOLEAN         NOT NULL DEFAULT FALSE,
     verificada_por  UUID,                       -- usuario gobierno/admin que la valida
-    verificada_en   TIMESTAMPTZ,
     creado_en       TIMESTAMPTZ     NOT NULL DEFAULT now()
 );
 
@@ -224,8 +183,7 @@ CREATE TABLE rechazo_gasto (
     gasto_id       UUID            NOT NULL UNIQUE,
     origen         origen_rechazo  NOT NULL,
     motivo         motivo_rechazo  NOT NULL,
-    detalle        TEXT,
-    respuesta_api  JSONB,                       -- error devuelto por Open Payments, si aplica
+    detalle        TEXT,                      -- error devuelto por Open Payments, si aplica
     rechazado_por  UUID,                        -- NULL si fue automático
     creado_en      TIMESTAMPTZ     NOT NULL DEFAULT now()
 );
