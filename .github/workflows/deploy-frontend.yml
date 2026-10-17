@@ -106,7 +106,7 @@ jobs:
 
             export FRONTEND_IMAGE="${{ env.IMAGE }}:${{ github.sha }}"
             export FRONTEND_HOST_PORT="${{ secrets.FRONTEND_HOST_PORT }}"
-            : "${FRONTEND_HOST_PORT:=80}"
+            : "${FRONTEND_HOST_PORT:=8080}"
             echo "==> Desplegando $FRONTEND_IMAGE en el puerto $FRONTEND_HOST_PORT"
 
             docker compose pull

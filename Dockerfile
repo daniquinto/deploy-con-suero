@@ -9,7 +9,7 @@ WORKDIR /app
 COPY . .
 
 # Soporta Vite (dist/) y Create React App (build/). El resultado siempre
-# queda en /out, que es lo unico que pasa al stage de nginx.
+# queda en /out, que es lo unico que pasa al stage final.
 RUN set -e; \
     if [ -f package.json ]; then \
       if [ -f package-lock.json ]; then npm ci || npm install; else npm install; fi; \
@@ -31,20 +31,29 @@ RUN set -e; \
         '<!doctype html><html lang="es"><head><meta charset="utf-8">' \
         '<title>frontend placeholder</title></head><body>' \
         '<h1>frontend placeholder</h1>' \
-        '<p>Aun no hay una app React en el repo. El contenedor y nginx funcionan.</p>' \
+        '<p>Aun no hay una app React en el repo. El contenedor funciona.</p>' \
         '</body></html>' > /out/index.html; \
     fi
 
-# ---------- Stage 2: servir los estaticos con nginx ----------
-FROM nginx:alpine
+# ---------- Stage 2: servir los estaticos con Node ----------
+# Sin nginx en la imagen: el proxy reverso lo hace el nginx de la VPS.
+FROM node:20-alpine
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=builder /out /usr/share/nginx/html
+ENV NODE_ENV=production \
+    PORT=8080 \
+    STATIC_ROOT=/app/public
 
-# Puerto publicado hacia afuera del contenedor.
-EXPOSE 80
+WORKDIR /app
+
+COPY --chown=node:node serve-static.js ./serve-static.js
+COPY --from=builder --chown=node:node /out ./public
+
+USER node
+
+# Puerto fijo al que apunta el proxy reverso del host.
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
-  CMD wget -qO- http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1
+  CMD wget -qO- "http://127.0.0.1:${PORT}/healthz" >/dev/null 2>&1 || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "serve-static.js"]
