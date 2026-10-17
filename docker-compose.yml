@@ -21,7 +21,7 @@ services:
       # con ese nombre y el arranque falla con "no es un PEM PKCS#8".
       - ./secrets/private.key:/run/secrets/op_private_key:ro
     ports:
-      - "${HOST_PORT:-3000}:3000"
+      - "127.0.0.1:3000:3000"
     healthcheck:
       test:
         - CMD

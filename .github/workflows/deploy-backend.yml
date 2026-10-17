@@ -106,22 +106,16 @@ jobs:
               | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
             export BACKEND_IMAGE="${{ env.IMAGE }}:${{ github.sha }}"
-            export HOST_PORT="${{ secrets.HOST_PORT }}"
-            : "${HOST_PORT:=3000}"
-            echo "==> Desplegando $BACKEND_IMAGE en el puerto $HOST_PORT"
+            echo "==> Desplegando $BACKEND_IMAGE"
 
-            # Un contenedor viejo (de otra definicion o de un run manual)
-            # puede seguir reteniendo el puerto. Se libera antes de levantar.
-            echo "==> Liberando el puerto $HOST_PORT si quedo tomado"
-            docker compose down --remove-orphans 2>/dev/null || true
-            STALE=$(docker ps -aq --filter "publish=$HOST_PORT")
-            if [ -n "$STALE" ]; then
-              echo "Removiendo contenedores que retienen el puerto: $STALE"
-              docker rm -f $STALE
-            fi
+            # Solo el contenedor de este servicio, nombrado explicitamente:
+            # este deploy nunca puede tocar al frontend ni a nada mas.
+            echo "==> Recreando el contenedor backend"
+            docker compose down 2>/dev/null || true
+            docker rm -f backend 2>/dev/null || true
 
             docker compose pull
-            docker compose up -d --no-build --remove-orphans
+            docker compose up -d --no-build
 
             echo "==> Limpiando imagenes viejas"
             docker image prune -f
