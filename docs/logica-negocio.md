@@ -2,7 +2,7 @@
 - Solo el admin puede registrar entidades gubernamentales
 - Una entidad/fundacion debe estar activa para operar
 - Una entidad solo ve y gestiona las fundaciones que ella registro
-- Una fundacion solo puede ser registrada por una entidad gubernamental
+- Una fundacion se registra desde la app y queda PENDIENTE; una entidad gubernamental la revisa, la activa y queda asignada a ella
 - Una fundación nace en estado PENDIENTE y solo puede recibir donaciones cuando está ACTIVA.
 - Solo una fundación ACTIVA puede crear o publicar causas.
 - La fundación no puede gastar más de lo que le han liberado (lo gastado nunca supera lo liberado).
