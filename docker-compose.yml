@@ -1,0 +1,10 @@
+services:
+  frontend:
+    # En la VPS la imagen llega desde GHCR (la define el CI con FRONTEND_IMAGE).
+    # En local, si no esta definida, se construye desde el Dockerfile.
+    image: ${FRONTEND_IMAGE:-deploy-con-suero-frontend:local}
+    build: .
+    container_name: frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_HOST_PORT:-80}:80"
