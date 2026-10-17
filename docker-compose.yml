@@ -11,4 +11,4 @@ services:
       PORT: 8080
     # Solo escucha en loopback: el unico que entra es el nginx del host.
     ports:
-      - "127.0.0.1:${FRONTEND_HOST_PORT:-8080}:8080"
+      - "127.0.0.1:8080:8080"
