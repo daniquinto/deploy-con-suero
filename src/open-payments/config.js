@@ -58,6 +58,17 @@ export function toWalletAddressUrl(input, { allowHttp = false } = {}) {
   if (url.search || url.hash) {
     throw new ConfigError("La wallet address no admite query string ni fragmento.");
   }
+  // "https://$ilp.example/alice" mezcla las dos notaciones: el "$" acaba
+  // dentro del host y la dirección resuelve a ninguna parte. Es un error de
+  // tecleo frecuente, tanto en el .env como en el formulario del donante, y
+  // sin esta comprobación solo se nota al intentar cobrar.
+  if (url.hostname.includes("$")) {
+    throw new ConfigError(
+      `"${raw}" mezcla las dos notaciones de wallet address. Usa la URL ` +
+        `("https://ilp.example/alice") o el payment pointer ("$ilp.example/alice"), ` +
+        "pero no el \"$\" después de https://.",
+    );
+  }
 
   url.pathname = url.pathname.replace(/\/+$/, "") || "/.well-known/pay";
   return url.toString().replace(/\/$/, "");
@@ -174,7 +185,10 @@ function buildConfig() {
   const useHttp = asBoolean("OP_USE_HTTP", false);
   const walletUrl = (key, { fallback } = {}) => {
     const value = fallback === undefined ? required(key) : optional(key, fallback);
-    if (value === undefined) return undefined;
+    // Una variable opcional sin valor se queda sin resolver: pasarla a
+    // toWalletAddressUrl haría fallar el arranque por una wallet de prueba
+    // que nadie configuró.
+    if (value === undefined || value === null || value === "") return null;
     try {
       return toWalletAddressUrl(value, { allowHttp: useHttp });
     } catch (cause) {
@@ -232,7 +246,56 @@ function buildConfig() {
     walletCacheTtlMs: asInteger("OP_WALLET_CACHE_TTL_SECONDS", 300, { min: 0 }) * 1000,
 
     tokenEncSecret: optional("TOKEN_ENC_SECRET", undefined),
+
+    // Reglas del producto "donación".
+    donations: {
+      // Minutos que el cobro queda abierto esperando el consentimiento del
+      // donante. Pasado ese plazo el incoming payment expira y hay que
+      // empezar de nuevo.
+      expiryMinutes: asInteger("DONATION_EXPIRY_MINUTES", 15, { min: 1 }),
+      // Límites en unidades humanas del activo ("1", "500"). Se comparan en la
+      // escala de la moneda de cada lado: 10 significa 10 USD o 10 EUR.
+      minAmount: optional("DONATION_MIN_AMOUNT", undefined) ?? null,
+      maxAmount: optional("DONATION_MAX_AMOUNT", undefined) ?? null,
+      defaultDescription: optional("DONATION_DESCRIPTION", "Donación"),
+      // Montos sugeridos para los botones del formulario (humanos, separados
+      // por coma). Solo informativos: el backend valida contra min/max.
+      suggestedAmounts: optional("DONATION_SUGGESTED_AMOUNTS", "5,10,25,50")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
+      // Snapshot del store en disco. Sin esto, un reinicio del contenedor
+      // pierde las donaciones a medio camino (ver src/donations/README.md).
+      storePath: optional("DONATIONS_STORE_PATH", undefined) ?? null,
+      // Cada cuántos segundos corre el job que rescata donaciones a medias.
+      resumeIntervalSeconds: asInteger("DONATION_RESUME_INTERVAL_SECONDS", 30, { min: 5 }),
+    },
+
+    http: {
+      // Orígenes autorizados a llamar a la API desde un navegador. FRONTEND_URL
+      // se añade solo. "*" abre la API a cualquier origen: solo para desarrollo.
+      corsOrigins: optional("CORS_ALLOWED_ORIGINS", "")
+        .split(",")
+        .map((value) => value.trim().replace(/\/$/, ""))
+        .filter(Boolean),
+    },
   };
+
+  if (config.http.corsOrigins.length === 0 && config.interact.frontendUrl) {
+    config.http.corsOrigins.push(config.interact.frontendUrl);
+  }
+
+  for (const [key, value] of [
+    ["DONATION_MIN_AMOUNT", config.donations.minAmount],
+    ["DONATION_MAX_AMOUNT", config.donations.maxAmount],
+  ]) {
+    if (value !== null && !/^\d+(\.\d+)?$/.test(value)) {
+      throw new ConfigError(
+        `${key} debe ser un monto humano positivo, p. ej. "10" o "0.50" ` +
+          `(recibido: "${value}").`,
+      );
+    }
+  }
 
   if (!/^\d+$/.test(config.defaultAmount)) {
     throw new ConfigError(
@@ -277,7 +340,14 @@ export function describeConfig() {
     keyId: config.client.keyId,
     privateKey: `cargada desde ${config.client.privateKeyOrigin}`,
     fundWalletAddress: config.wallets.fund,
-    interactFinishUrl: config.interact.finishUrl ?? "(sin PUBLIC_BASE_URL)",
+    interactFinishUrl: config.interact.finishUrl ?? "(sin PUBLIC_BASE_URL: modo polling)",
+    donations: {
+      expiryMinutes: config.donations.expiryMinutes,
+      minAmount: config.donations.minAmount,
+      maxAmount: config.donations.maxAmount,
+      storePath: config.donations.storePath ?? "(solo en memoria)",
+    },
+    corsOrigins: config.http.corsOrigins,
     sdk: config.sdk,
   };
 }

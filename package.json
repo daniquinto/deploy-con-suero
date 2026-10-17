@@ -3,16 +3,21 @@
   "version": "0.1.0",
   "description": "Backend del proyecto deploy-con-suero: cliente de Open Payments para donaciones de emergencia y gasto trazable en comercios locales.",
   "type": "module",
-  "main": "src/index.js",
+  "main": "src/server.js",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "op:check": "node scripts/op-check.mjs"
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test tests/*.test.mjs",
+    "op:check": "node scripts/op-check.mjs",
+    "donate": "node scripts/donate.mjs"
   },
   "license": "ISC",
   "dependencies": {
     "@interledger/open-payments": "^7.4.0",
-    "dotenv": "^18.0.0"
+    "dotenv": "^18.0.0",
+    "express": "^4.21.2"
   }
 }
