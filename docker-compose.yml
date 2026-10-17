@@ -1,0 +1,23 @@
+services:
+  backend:
+    # En la VPS la imagen llega desde GHCR (la define el CI con BACKEND_IMAGE).
+    # En local, si no esta definida, se construye desde el Dockerfile.
+    image: ${BACKEND_IMAGE:-deploy-con-suero-backend:local}
+    build: .
+    container_name: backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('net').connect(process.env.PORT||3000).on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
