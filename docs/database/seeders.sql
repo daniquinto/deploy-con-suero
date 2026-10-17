@@ -16,7 +16,7 @@
 BEGIN;
 
 -- ---------------------------------------------------------------------
--- USUARIO (1 admin, 2 gobierno, 4 fundación, 4 donantes)
+-- USUARIO (1 admin, 2 gobierno, 6 fundación, 4 donantes)
 -- ---------------------------------------------------------------------
 INSERT INTO usuario (id, email, telefono, password_hash, nombre, rol, estado) VALUES
 ('10000000-0000-0000-0000-000000000001', 'admin@manoabierta.app',            '+573000000001', '$2b$10$ndQCOGP7JrkQSVi.GnPwXeSGUZesUeN2O2ybrsUlCXeI1q/EUCyrC', 'Equipo Mano Abierta',       'ADMIN',     'ACTIVO'),
@@ -30,7 +30,10 @@ INSERT INTO usuario (id, email, telefono, password_hash, nombre, rol, estado) VA
 ('10000000-0000-0000-0000-000000000009', 'ana.perez@example.com',            '+573000000009', '$2b$10$ndQCOGP7JrkQSVi.GnPwXeSGUZesUeN2O2ybrsUlCXeI1q/EUCyrC', 'Ana Pérez',                 'DONANTE',   'ACTIVO'),
 -- Cuentas de la demo
 ('10000000-0000-0000-0000-000000000010', 'donador@gmail.com',                '+573000000010', '$2b$10$ndQCOGP7JrkQSVi.GnPwXeSGUZesUeN2O2ybrsUlCXeI1q/EUCyrC', 'Daniela Restrepo',          'DONANTE',   'ACTIVO'),
-('10000000-0000-0000-0000-000000000011', 'fundacion@gmail.com',              '+573000000011', '$2b$10$ndQCOGP7JrkQSVi.GnPwXeSGUZesUeN2O2ybrsUlCXeI1q/EUCyrC', 'Fundación Puente Vivo',     'FUNDACION', 'ACTIVO');
+('10000000-0000-0000-0000-000000000011', 'fundacion@gmail.com',              '+573000000011', '$2b$10$ndQCOGP7JrkQSVi.GnPwXeSGUZesUeN2O2ybrsUlCXeI1q/EUCyrC', 'Fundación Agua y Vida',     'FUNDACION', 'ACTIVO'),
+-- Organizaciones del catálogo de causas
+('10000000-0000-0000-0000-000000000012', 'contacto@ninezconfuturo.org',      '+573000000012', '$2b$10$ndQCOGP7JrkQSVi.GnPwXeSGUZesUeN2O2ybrsUlCXeI1q/EUCyrC', 'Fundación Niñez con Futuro','FUNDACION', 'ACTIVO'),
+('10000000-0000-0000-0000-000000000013', 'hola@redsolidaria.co',             '+573000000013', '$2b$10$ndQCOGP7JrkQSVi.GnPwXeSGUZesUeN2O2ybrsUlCXeI1q/EUCyrC', 'Red Solidaria Colombia',    'FUNDACION', 'ACTIVO');
 
 -- ---------------------------------------------------------------------
 -- ENTIDAD_GUBERNAMENTAL (registradas por el admin)
@@ -42,7 +45,7 @@ INSERT INTO entidad_gubernamental (id, usuario_id, registrada_por, nombre, nit, 
  'Unidad Nacional para la Gestión del Riesgo', '800000002-2', 'NACIONAL', 'CO', NULL, NULL);
 
 -- ---------------------------------------------------------------------
--- FUNDACION (3 activas, 1 pendiente de activación y sin entidad asignada)
+-- FUNDACION (5 activas, 1 pendiente de activación y sin entidad asignada)
 -- ---------------------------------------------------------------------
 INSERT INTO fundacion (id, usuario_id, entidad_gubernamental_id, razon_social, persona_responsable, tipo_identificacion, nit,
                        descripcion, pais, departamento, ciudad,
@@ -69,12 +72,24 @@ INSERT INTO fundacion (id, usuario_id, entidad_gubernamental_id, razon_social, p
  NULL, 'COP', 2,
  NULL, NULL, NULL, NULL, NULL, NULL,
  'PENDIENTE', NULL),
-('30000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000011', '20000000-0000-0000-0000-000000000001',
- 'Fundación Puente Vivo', 'Andrés Palacios', 'NIT', '900412118-3',
- 'Ayuda humanitaria en el Pacífico colombiano: alimentos, agua potable y salud para familias damnificadas.', 'CO', 'Chocó', 'Quibdó',
- 'https://ilp.interledger-test.dev/puente-vivo', 'COP', 2,
+('30000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000011', '20000000-0000-0000-0000-000000000002',
+ 'Fundación Agua y Vida', 'Andrés Palacios', 'NIT', '900412118-3',
+ 'Agua potable, salud y educación para comunidades rurales de Colombia.', 'CO', 'La Guajira', 'Riohacha',
+ 'https://ilp.interledger-test.dev/agua-y-vida', 'COP', 2,
  NULL, NULL, NULL, NULL, NULL, NULL,
- 'ACTIVA', '2026-10-05 10:00:00-05');
+ 'ACTIVA', '2026-10-05 10:00:00-05'),
+('30000000-0000-0000-0000-000000000005', '10000000-0000-0000-0000-000000000012', '20000000-0000-0000-0000-000000000002',
+ 'Fundación Niñez con Futuro', 'Paola Mosquera', 'NIT', '900512334-7',
+ 'Educación, nutrición y protección para niñas y niños en territorios vulnerables.', 'CO', 'Valle del Cauca', 'Buenaventura',
+ 'https://ilp.interledger-test.dev/ninez-con-futuro', 'COP', 2,
+ NULL, NULL, NULL, NULL, NULL, NULL,
+ 'ACTIVA', '2026-10-05 11:00:00-05'),
+('30000000-0000-0000-0000-000000000006', '10000000-0000-0000-0000-000000000013', '20000000-0000-0000-0000-000000000001',
+ 'Red Solidaria Colombia', 'Camilo Arango', 'NIT', '900623445-1',
+ 'Respuesta a emergencias, vivienda y restauración ambiental con las comunidades.', 'CO', 'Antioquia', 'Medellín',
+ 'https://ilp.interledger-test.dev/red-solidaria', 'COP', 2,
+ NULL, NULL, NULL, NULL, NULL, NULL,
+ 'ACTIVA', '2026-10-05 12:00:00-05');
 
 -- ---------------------------------------------------------------------
 -- DONANTE (España EUR, EE. UU. USD, Colombia COP, demo)
@@ -95,7 +110,6 @@ INSERT INTO donante (id, usuario_id, nombres, apellidos, tipo_documento, numero_
 -- causa 1: recaudado 620.000 | liberado 620.000 | gastado 275.000
 -- causa 2: recaudado 150.000 | liberado 0       | gastado 0
 -- causa 3: sin donaciones aún
--- causa 4: de la fundación demo, sin donaciones aún
 -- ---------------------------------------------------------------------
 INSERT INTO causa (id, fundacion_id, titulo, slug, descripcion, tipo, pais, region, ciudad, latitud, longitud, fecha_evento,
                    asset_code, asset_scale, meta_monto, monto_recaudado, monto_liberado, monto_gastado, estado, fecha_inicio) VALUES
@@ -113,12 +127,76 @@ INSERT INTO causa (id, fundacion_id, titulo, slug, descripcion, tipo, pais, regi
  'Sismo en Esmeraldas', 'sismo-esmeraldas-2026',
  'Sismo de magnitud 6,4 afecta viviendas en la costa norte de Ecuador.', 'SISMO',
  'EC', 'Esmeraldas', 'Esmeraldas', 0.968200, -79.651700, '2026-10-16 14:20:00-05',
- 'COP', 2, 2000000000, 0, 0, 0, 'ACTIVA', '2026-10-16 18:00:00-05'),
+ 'COP', 2, 2000000000, 0, 0, 0, 'ACTIVA', '2026-10-16 18:00:00-05');
+
+-- ---------------------------------------------------------------------
+-- CAUSA — catálogo de la app (docs/causas.md)
+-- Totales agregados de campañas en curso: monto_recaudado y numero_donantes
+-- vienen ya sumados (no hay filas de donación detrás). Montos x100 por asset_scale 2.
+-- ---------------------------------------------------------------------
+INSERT INTO causa (id, fundacion_id, titulo, slug, descripcion, tipo, pais, region, ciudad, fecha_evento, imagen_url,
+                   beneficiarios, uso_fondos, asset_code, asset_scale, meta_monto, monto_recaudado, numero_donantes,
+                   estado, fecha_inicio, fecha_fin) VALUES
 ('50000000-0000-0000-0000-000000000004', '30000000-0000-0000-0000-000000000004',
- 'Agua potable en Río Claro', 'agua-potable-rio-claro-2026',
- 'Agua potable y filtros para las veredas que quedaron sin acueducto después de la inundación.', 'INUNDACION',
- 'CO', 'Chocó', 'Río Claro', 5.694800, -76.658200, '2026-10-15 06:00:00-05',
- 'COP', 2, 800000000, 0, 0, 0, 'ACTIVA', '2026-10-15 12:00:00-05');
+ 'Agua limpia para La Guajira', 'agua-limpia-la-guajira',
+ 'Construiremos sistemas de almacenamiento y filtración de agua para 120 familias de comunidades rurales.', 'COMUNIDADES',
+ 'CO', 'La Guajira', 'Uribia', '2026-09-15 00:00:00-05', 'https://images.unsplash.com/photo-1504159506876-f8338247a14a?auto=format&fit=crop&w=900&q=80',
+ 120, ARRAY['Sistemas de almacenamiento y filtración', 'Transporte e instalación', 'Acompañamiento a las familias'],
+ 'COP', 2, 5000000000, 3845000000, 428, 'ACTIVA', '2026-09-15 00:00:00-05', '2026-12-31 23:59:59-05'),
+('50000000-0000-0000-0000-000000000005', '30000000-0000-0000-0000-000000000005',
+ 'Una biblioteca para soñar', 'biblioteca-para-sonar',
+ 'Crearemos un espacio seguro con libros, tecnología y acompañamiento escolar para más de 300 niños y jóvenes.', 'EDUCACION',
+ 'CO', 'Valle del Cauca', 'Buenaventura', '2026-09-20 00:00:00-05', 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=900&q=80',
+ 300, ARRAY['Materiales y kits educativos', 'Acompañamiento pedagógico', 'Transporte y logística local'],
+ 'COP', 2, 3000000000, 1820000000, 216, 'ACTIVA', '2026-09-20 00:00:00-05', '2026-12-31 23:59:59-05'),
+('50000000-0000-0000-0000-000000000006', '30000000-0000-0000-0000-000000000006',
+ 'Bosques que vuelven a respirar', 'bosques-vuelven-respirar',
+ 'Restauraremos 20 hectáreas con especies nativas y trabajo remunerado para familias de la región.', 'AMBIENTE',
+ 'CO', 'Magdalena', 'Sierra Nevada de Santa Marta', '2026-09-25 00:00:00-05', 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=900&q=80',
+ 80, ARRAY['Restauración y herramientas', 'Jornales para familias locales', 'Seguimiento del ecosistema'],
+ 'COP', 2, 4500000000, 2475000000, 301, 'ACTIVA', '2026-09-25 00:00:00-05', '2026-12-31 23:59:59-05'),
+('50000000-0000-0000-0000-000000000007', '30000000-0000-0000-0000-000000000004',
+ 'Atención médica sin fronteras', 'atencion-medica-sin-fronteras',
+ 'Llevaremos brigadas médicas, medicamentos y atención preventiva a comunidades de difícil acceso.', 'SALUD',
+ 'CO', 'Pacífico colombiano', NULL, '2026-09-28 00:00:00-05', 'https://images.unsplash.com/photo-1584515933487-779824d29309?auto=format&fit=crop&w=900&q=80',
+ 450, ARRAY['Medicamentos y atención primaria', 'Equipos para brigadas médicas', 'Traslados de pacientes'],
+ 'COP', 2, 4000000000, 1260000000, 173, 'ACTIVA', '2026-09-28 00:00:00-05', '2026-12-31 23:59:59-05'),
+('50000000-0000-0000-0000-000000000008', '30000000-0000-0000-0000-000000000006',
+ 'Refugio para familias después de la inundación', 'refugio-familias-inundacion',
+ 'Entregaremos kits de emergencia, alimentos y soluciones temporales de vivienda a familias afectadas.', 'COMUNIDADES',
+ 'CO', 'Bolívar', 'Santa Cruz de Mompox', '2026-10-03 00:00:00-05', 'https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=900&q=80',
+ 210, ARRAY['Ayudas y suministros esenciales', 'Transporte y distribución', 'Acompañamiento a las familias'],
+ 'COP', 2, 3500000000, 2190000000, 287, 'ACTIVA', '2026-10-03 00:00:00-05', '2026-12-31 23:59:59-05'),
+('50000000-0000-0000-0000-000000000009', '30000000-0000-0000-0000-000000000005',
+ 'Alimentación para crecer', 'alimentacion-para-crecer',
+ 'Aseguraremos complementos alimentarios para 180 niños durante el año escolar.', 'COMUNIDADES',
+ 'CO', 'Cundinamarca', 'Soacha', '2026-10-05 00:00:00-05', 'https://images.unsplash.com/photo-1602030028438-4cf153cbae9e?auto=format&fit=crop&w=900&q=80',
+ 180, ARRAY['Complementos alimentarios', 'Seguimiento nutricional', 'Distribución en instituciones educativas'],
+ 'COP', 2, 2800000000, 1580000000, 192, 'ACTIVA', '2026-10-05 00:00:00-05', '2026-12-31 23:59:59-05'),
+('50000000-0000-0000-0000-000000000010', '30000000-0000-0000-0000-000000000006',
+ 'Reconstrucción de hogares', 'reconstruccion-de-hogares',
+ 'Repararemos viviendas afectadas por deslizamientos y devolveremos seguridad a 35 familias.', 'COMUNIDADES',
+ 'CO', 'Chocó', 'Quibdó', '2026-10-07 00:00:00-05', 'https://images.unsplash.com/photo-1542810634-71277d95dcbb?auto=format&fit=crop&w=900&q=80',
+ 35, ARRAY['Materiales de construcción', 'Mano de obra local', 'Supervisión técnica'],
+ 'COP', 2, 6000000000, 3020000000, 344, 'ACTIVA', '2026-10-07 00:00:00-05', '2026-12-31 23:59:59-05'),
+('50000000-0000-0000-0000-000000000011', '30000000-0000-0000-0000-000000000005',
+ 'Primera infancia segura', 'primera-infancia-segura',
+ 'Fortaleceremos la atención integral y la protección de 90 niños en sus primeros años de vida.', 'SALUD',
+ 'CO', 'Nariño', 'Tumaco', '2026-10-09 00:00:00-05', 'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?auto=format&fit=crop&w=900&q=80',
+ 90, ARRAY['Atención integral', 'Controles de crecimiento', 'Protección y acompañamiento familiar'],
+ 'COP', 2, 3200000000, 1940000000, 229, 'ACTIVA', '2026-10-09 00:00:00-05', '2026-12-31 23:59:59-05'),
+('50000000-0000-0000-0000-000000000012', '30000000-0000-0000-0000-000000000004',
+ 'Kits escolares para volver a clases', 'kits-escolares-regreso-clases',
+ 'Entregaremos útiles y uniformes a 250 estudiantes para que puedan continuar su formación.', 'EDUCACION',
+ 'CO', 'Norte de Santander', 'Cúcuta', '2026-10-11 00:00:00-05', 'https://images.unsplash.com/photo-1509099836639-18ba02c0c1a0?auto=format&fit=crop&w=900&q=80',
+ 250, ARRAY['Útiles escolares', 'Uniformes', 'Entrega y seguimiento escolar'],
+ 'COP', 2, 1800000000, 980000000, 156, 'ACTIVA', '2026-10-11 00:00:00-05', '2026-12-31 23:59:59-05'),
+('50000000-0000-0000-0000-000000000013', '30000000-0000-0000-0000-000000000006',
+ 'Manglares para proteger la costa', 'manglares-proteger-costa',
+ 'Restauraremos manglares junto a las comunidades para proteger la costa y recuperar la biodiversidad.', 'AMBIENTE',
+ 'CO', 'Chocó', 'Nuquí', '2026-10-13 00:00:00-05', 'https://images.unsplash.com/photo-1497250681960-ef046c08a56e?auto=format&fit=crop&w=900&q=80',
+ 120, ARRAY['Restauración de manglares', 'Herramientas para la comunidad', 'Monitoreo de biodiversidad'],
+ 'COP', 2, 2500000000, 1160000000, 138, 'ACTIVA', '2026-10-13 00:00:00-05', '2026-12-31 23:59:59-05');
 
 -- ---------------------------------------------------------------------
 -- DONACION

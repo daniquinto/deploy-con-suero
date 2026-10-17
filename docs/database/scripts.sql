@@ -34,8 +34,10 @@ CREATE TYPE estado_fundacion    AS ENUM ('PENDIENTE', 'ACTIVA', 'SUSPENDIDA');
 CREATE TYPE tipo_documento      AS ENUM ('CC', 'CE', 'TI', 'PA', 'PPT', 'DNI');
 CREATE TYPE genero              AS ENUM ('F', 'M', 'NB', 'ND');                         -- ND = prefiere no decirlo
 CREATE TYPE tipo_identificacion AS ENUM ('NIT', 'RUT', 'REGISTRO_EXTRANJERO', 'OTRO');  -- de la fundación
+-- Emergencias y también categorías de proyectos sociales que muestra la app
 CREATE TYPE tipo_causa          AS ENUM ('EMERGENCIA', 'DESASTRE', 'INUNDACION', 'SISMO', 'INCENDIO',
-                                         'DESPLAZAMIENTO', 'PROYECTO', 'ENFERMEDAD');
+                                         'DESPLAZAMIENTO', 'PROYECTO', 'ENFERMEDAD',
+                                         'COMUNIDADES', 'EDUCACION', 'AMBIENTE', 'SALUD');
 CREATE TYPE estado_causa        AS ENUM ('BORRADOR', 'ACTIVA', 'PAUSADA', 'CERRADA');
 CREATE TYPE estado_donacion     AS ENUM ('PENDIENTE', 'AUTORIZADA', 'COMPLETADA', 'FALLIDA', 'CANCELADA');
 CREATE TYPE estado_liberacion   AS ENUM ('PENDIENTE', 'LIBERADA', 'FALLIDA');
@@ -154,6 +156,8 @@ CREATE TABLE causa (
     longitud         NUMERIC(9, 6),
     fecha_evento     TIMESTAMPTZ   NOT NULL,          -- cuándo ocurrió el desastre (orden "más recientes")
     imagen_url       VARCHAR(500),
+    beneficiarios    INTEGER,                         -- personas o familias que recibirán la ayuda
+    uso_fondos       TEXT[]        NOT NULL DEFAULT '{}',   -- en qué se usará el dinero (para el donante)
     -- Montos en la moneda de la fundación
     asset_code       VARCHAR(3)    NOT NULL,
     asset_scale      SMALLINT      NOT NULL,
@@ -161,6 +165,7 @@ CREATE TABLE causa (
     monto_recaudado  BIGINT        NOT NULL DEFAULT 0,   -- donado (en la wallet de la app)
     monto_liberado   BIGINT        NOT NULL DEFAULT 0,   -- transferido a la wallet de la fundación
     monto_gastado    BIGINT        NOT NULL DEFAULT 0,   -- pagado a comercios o transferido
+    numero_donantes  INTEGER       NOT NULL DEFAULT 0,   -- contador, se actualiza con cada donación completada
     estado           estado_causa  NOT NULL DEFAULT 'BORRADOR',
     fecha_inicio     TIMESTAMPTZ   NOT NULL DEFAULT now(),
     fecha_fin        TIMESTAMPTZ,
@@ -316,6 +321,8 @@ ALTER TABLE causa ADD CONSTRAINT chk_causa_meta
     CHECK (meta_monto > 0);
 ALTER TABLE causa ADD CONSTRAINT chk_causa_fechas
     CHECK (fecha_fin IS NULL OR fecha_fin > fecha_inicio);
+ALTER TABLE causa ADD CONSTRAINT chk_causa_contadores
+    CHECK (numero_donantes >= 0 AND (beneficiarios IS NULL OR beneficiarios > 0));
 -- Lo liberado nunca supera lo recaudado y lo gastado nunca supera lo liberado.
 ALTER TABLE causa ADD CONSTRAINT chk_causa_saldos
     CHECK (monto_liberado <= monto_recaudado AND monto_gastado <= monto_liberado);
