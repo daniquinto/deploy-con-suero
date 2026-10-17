@@ -160,9 +160,33 @@ export function createApp({ service, store }) {
   app.get(`${config.interact.finishPath}/:id`, callbackHandler);
   app.get(config.interact.finishPath, callbackHandler);
 
-  /** Modo polling: el cliente avisa de que el donante ya autorizó. */
+  /**
+   * El cliente avisa de que el donante ya autorizó. Dos usos:
+   *
+   * 1. Con `interactRef` (y `hash`) en el cuerpo: el cliente capturó los
+   *    parámetros del redirect en vez de que los recibiera el backend. Es el
+   *    caso de una app móvil que intercepta su deep link, y el rescate de una
+   *    donación cuyo callback se perdió (una `PUBLIC_BASE_URL` equivocada
+   *    manda al donante a un dominio que no es el backend). Pasa por el mismo
+   *    camino verificado que el callback del navegador: se comprueba el hash y
+   *    el continue token se consume una sola vez.
+   * 2. Sin cuerpo, en modo polling: se pregunta al AS si ya hay consentimiento.
+   */
   app.post(`${DONATIONS_PATH}/:id/confirm`, async (req, res, next) => {
     try {
+      const interactRef = req.body?.interactRef ?? req.body?.interact_ref;
+      if (interactRef) {
+        const row = await service.getStatus(req.params.id, { refresh: false });
+        const { row: updated } = await service.finishFromCallback({
+          row,
+          hash: req.body?.hash,
+          interactRef,
+          result: req.body?.result,
+          verifyHash: verifyInteractHash,
+        });
+        return res.json(view(updated));
+      }
+
       const { row, outcome, retryAfter } = await service.confirmPending(req.params.id);
       if (outcome === "pending") {
         // 202: la petición es válida, el consentimiento todavía no está.

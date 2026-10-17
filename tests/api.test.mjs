@@ -219,6 +219,43 @@ test("cancelar devuelve la donación cancelada; una inexistente es 404", async (
   assert.equal((await inexistente.json()).error.code, "DONATION_NOT_FOUND");
 });
 
+test("se puede cerrar la donación pasando los parámetros del redirect", async () => {
+  // El caso real: el AS mandó al donante a un dominio que no es el backend
+  // (PUBLIC_BASE_URL equivocada), o una app móvil intercepta su deep link.
+  const { body } = await donar();
+  const row = await store.get(body.donationId);
+  const interactRef = "ref-rescatado";
+  const hash = crypto
+    .createHash("sha256")
+    .update(`${row.clientNonce}\n${row.asNonce}\n${interactRef}\n${row.authServer}`)
+    .digest("base64url");
+
+  const response = await post(`/api/donations/${body.donationId}/confirm`, {
+    hash,
+    interact_ref: interactRef,
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).status, "sending");
+
+  // Reenviarlo no crea un segundo pago.
+  const repetido = await post(`/api/donations/${body.donationId}/confirm`, {
+    hash,
+    interact_ref: interactRef,
+  });
+  assert.equal(repetido.status, 200);
+  assert.notEqual((await repetido.json()).status, "failed");
+});
+
+test("un rescate con hash inválido se rechaza igual que el callback", async () => {
+  const { body } = await donar();
+  const response = await post(`/api/donations/${body.donationId}/confirm`, {
+    hash: "falso",
+    interact_ref: "x",
+  });
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, "DONATION_BAD_INTERACT_HASH");
+});
+
 test("confirmar una donación que usa callback es 409", async () => {
   const { body } = await donar();
   const response = await post(`/api/donations/${body.donationId}/confirm`, {});
