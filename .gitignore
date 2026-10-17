@@ -1,0 +1,16 @@
+# Secretos: NUNCA commitear
+*.key
+*.pem
+.env
+.env.*
+!.env.example
+secrets/
+
+# Estado local de ejemplos
+*.state.json
+
+# Node
+node_modules/
+npm-debug.log*
+dist/
+build/
