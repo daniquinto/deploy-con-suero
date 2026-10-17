@@ -71,10 +71,62 @@ jobs:
               echo "VPS_APP_PATH esta vacio. Definilo en los secretos del repo."
               exit 1
             fi
-            mkdir -p "$APP_DIR"
+            mkdir -p "$APP_DIR/secrets"
+
+            # Si un run anterior levanto sin la llave, Docker creo un
+            # DIRECTORIO en su lugar por el volumen. Hay que sacarlo o el
+            # scp de la llave falla y el contenedor no arranca.
+            if [ -d "$APP_DIR/secrets/private.key" ]; then
+              echo "Removiendo el directorio fantasma secrets/private.key"
+              rm -rf "$APP_DIR/secrets/private.key"
+            fi
             echo "Carpeta de despliegue lista: $APP_DIR"
             docker --version
             docker compose version
+
+      # El compose declara env_file: .env y monta secrets/private.key, y los dos
+      # estan en .gitignore. Se materializan aqui desde los secretos del repo.
+      - name: Materializar .env y la llave privada
+        env:
+          BACKEND_ENV_FILE: ${{ secrets.BACKEND_ENV_FILE }}
+          OP_PRIVATE_KEY: ${{ secrets.OP_PRIVATE_KEY }}
+        run: |
+          if [ -z "$BACKEND_ENV_FILE" ]; then
+            echo "Falta el secreto BACKEND_ENV_FILE (el contenido completo del .env)."
+            exit 1
+          fi
+          if [ -z "$OP_PRIVATE_KEY" ]; then
+            echo "Falta el secreto OP_PRIVATE_KEY (el PEM Ed25519 PKCS#8)."
+            exit 1
+          fi
+
+          mkdir -p stage/secrets
+          printf '%s\n' "$BACKEND_ENV_FILE" > stage/.env
+          printf '%s\n' "$OP_PRIVATE_KEY"   > stage/secrets/private.key
+          chmod 600 stage/.env stage/secrets/private.key
+
+          # Falla temprano y con mensaje claro, en vez de un 401 en runtime.
+          if ! grep -q 'BEGIN PRIVATE KEY' stage/secrets/private.key; then
+            echo "OP_PRIVATE_KEY no parece un PEM PKCS#8 (falta 'BEGIN PRIVATE KEY')."
+            echo "Convertilo con: openssl pkcs8 -topk8 -nocrypt -in private.key"
+            exit 1
+          fi
+          if ! grep -q '^OP_KEY_ID=.\+' stage/.env; then
+            echo "Aviso: OP_KEY_ID esta vacio en el .env; las peticiones firmadas daran 401."
+          fi
+          echo ".env: $(wc -l < stage/.env) lineas · llave privada: OK"
+
+      - name: Copiar secretos a la VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "stage/.env,stage/secrets/private.key"
+          target: ${{ secrets.VPS_APP_PATH }}
+          strip_components: 1
+          overwrite: true
 
       - name: Copiar docker-compose.yml a la VPS
         uses: appleboy/scp-action@v0.1.7
@@ -107,6 +159,20 @@ jobs:
 
             export BACKEND_IMAGE="${{ env.IMAGE }}:${{ github.sha }}"
             echo "==> Desplegando $BACKEND_IMAGE"
+
+            # El volumen monta un ARCHIVO. Si falta, Docker crea un directorio
+            # con ese nombre y el contenedor arranca sin llave: hay que exigir
+            # archivo regular (-f), porque un directorio pasaria el test -s.
+            for f in .env secrets/private.key; do
+              if [ ! -f "$f" ] || [ ! -s "$f" ]; then
+                echo "Falta $f (o no es un archivo) en $APP_DIR."
+                echo "Revisa los secretos BACKEND_ENV_FILE y OP_PRIVATE_KEY del repo."
+                exit 1
+              fi
+            done
+            chmod 700 secrets
+            chmod 600 .env secrets/private.key
+            echo "==> .env y secrets/private.key presentes"
 
             # Solo el contenedor de este servicio, nombrado explicitamente:
             # este deploy nunca puede tocar al frontend ni a nada mas.
