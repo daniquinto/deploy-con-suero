@@ -7,6 +7,7 @@ import '../causes/causes_screen.dart';
 import '../causes/causes_service.dart';
 import '../causes/create_cause_screen.dart';
 import '../causes/widgets/cause_card.dart';
+import '../../core/theme/app_theme.dart';
 
 class LandingScreen extends StatelessWidget {
   LandingScreen({super.key});
@@ -76,20 +77,26 @@ class LandingScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 64),
               sliver: SliverLayoutBuilder(
                 builder: (context, constraints) {
-                  final compact = constraints.crossAxisExtent < 720;
+                  final columns = constraints.crossAxisExtent >= 1200
+                      ? 4
+                      : constraints.crossAxisExtent >= 720
+                      ? 3
+                      : 2;
                   return SliverGrid(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
+                      crossAxisCount: columns,
                       mainAxisSpacing: 16,
                       crossAxisSpacing: 16,
-                      mainAxisExtent: compact ? 290 : 360,
+                      mainAxisExtent: constraints.crossAxisExtent < 720
+                          ? 290
+                          : 360,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => CauseCard(
                         cause: _causes[index],
                         onTap: () => _openCause(context, _causes[index]),
                       ),
-                      childCount: 4,
+                      childCount: _causes.length,
                     ),
                   );
                 },
@@ -164,7 +171,7 @@ class _Header extends StatelessWidget {
                   if (!compact) ...[
                     const SizedBox(width: 8),
                     Text(
-                      'Impulsa',
+                      'Mano Abierta',
                       style: Theme.of(context).textTheme.titleLarge
                           ?.copyWith(fontWeight: FontWeight.w900),
                     ),
@@ -206,7 +213,7 @@ class _Hero extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0B1D4D), Color(0xFF124B68), Color(0xFF087F79)],
+          colors: [AppColors.forest, AppColors.transparentGreen],
         ),
       ),
       child: Stack(
@@ -267,9 +274,9 @@ class _HeroMessage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'DONAR ES TRANSFORMAR',
+          'MANO ABIERTA, CORAZÓN ABIERTO',
           style: TextStyle(
-            color: Color(0xFFA6EEF0),
+            color: AppColors.peach,
             fontWeight: FontWeight.w800,
             letterSpacing: 1.5,
             fontSize: 12,
@@ -277,7 +284,7 @@ class _HeroMessage extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         Text(
-          'Tu ayuda puede cambiar una historia',
+          'Cuando ayudar importa, cada segundo cuenta',
           style: Theme.of(context).textTheme.displaySmall?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w900,
@@ -286,7 +293,7 @@ class _HeroMessage extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         const Text(
-          'Conectamos personas solidarias con fundaciones verificadas para convertir cada aporte en oportunidades reales.',
+          'Ayudar debería ser fácil. Confiar debería serlo también. Conectamos personas solidarias con causas verificadas para convertir cada aporte en oportunidades reales.',
           style: TextStyle(color: Colors.white70, fontSize: 17, height: 1.5),
         ),
       ],
@@ -308,8 +315,8 @@ class _ImpactVisual extends StatelessWidget {
             runSpacing: 18,
             alignment: WrapAlignment.center,
             children: [
-              _ImpactNumber(value: '4', label: 'causas activas'),
-              _ImpactNumber(value: '+1.100', label: 'personas ayudando'),
+              _ImpactNumber(value: '10', label: 'causas activas'),
+              _ImpactNumber(value: '3', label: 'fundaciones'),
             ],
           ),
         ],
@@ -364,7 +371,7 @@ class _TrustSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFEEF3FA),
+      color: AppColors.paleGreen,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
       child: const Center(
         child: Wrap(
@@ -402,7 +409,7 @@ class _TrustItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: const Color(0xFF087F6D)),
+        Icon(icon, color: AppColors.transparentGreen),
         const SizedBox(width: 8),
         Text(text, style: const TextStyle(fontWeight: FontWeight.w700)),
       ],

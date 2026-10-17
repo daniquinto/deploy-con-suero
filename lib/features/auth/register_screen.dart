@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/theme/app_theme.dart';
 import 'auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -36,6 +37,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String? _documentType;
   String? _gender;
+  bool _isFoundation = false;
   bool _isLoading = false;
   bool _hidePassword = true;
 
@@ -72,9 +74,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       await _authService.register(
         names: _namesController.text.trim(),
         lastNames: _lastNamesController.text.trim(),
-        documentType: _documentType!,
+        documentType: _isFoundation ? 'NIT' : _documentType!,
         document: _documentController.text.trim(),
-        gender: _gender!,
+        gender: _isFoundation ? 'No aplica' : _gender!,
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
@@ -110,24 +112,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    _AccountTypeSelector(
+                      isFoundation: _isFoundation,
+                      onChanged: (value) {
+                        setState(() {
+                          _isFoundation = value;
+                          _documentType = null;
+                          _gender = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 28),
                     Text(
-                      'Datos personales',
+                      _isFoundation
+                          ? 'Datos de la fundación'
+                          : 'Datos personales',
                       style: Theme.of(context).textTheme.titleLarge
                           ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    const Text('Completa la información para crear tu cuenta.'),
+                    Text(
+                      _isFoundation
+                          ? 'Registra tu organización para recibir aportes con transparencia.'
+                          : 'Completa la información para crear tu cuenta.',
+                    ),
                     const SizedBox(height: 24),
                     TextFormField(
                       controller: _namesController,
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.givenName],
-                      decoration: const InputDecoration(
-                        labelText: 'Nombres',
-                        prefixIcon: Icon(Icons.person_outline),
+                      decoration: InputDecoration(
+                        labelText: _isFoundation
+                            ? 'Nombre de la fundación'
+                            : 'Nombres',
+                        prefixIcon: Icon(Icons.volunteer_activism_outlined),
                       ),
-                      validator: (value) => _required(value, 'tus nombres'),
+                      validator: (value) => _required(
+                        value,
+                        _isFoundation
+                            ? 'el nombre de la fundación'
+                            : 'tus nombres',
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -135,64 +161,80 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.familyName],
-                      decoration: const InputDecoration(
-                        labelText: 'Apellidos',
+                      decoration: InputDecoration(
+                        labelText: _isFoundation
+                            ? 'Persona responsable'
+                            : 'Apellidos',
                         prefixIcon: Icon(Icons.person_outline),
                       ),
-                      validator: (value) => _required(value, 'tus apellidos'),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: _documentType,
-                      decoration: const InputDecoration(
-                        labelText: 'Tipo de documento',
-                        prefixIcon: Icon(Icons.badge_outlined),
+                      validator: (value) => _required(
+                        value,
+                        _isFoundation
+                            ? 'la persona responsable'
+                            : 'tus apellidos',
                       ),
-                      items: _documentTypes
-                          .map(
-                            (type) => DropdownMenuItem(
-                              value: type,
-                              child: Text(type),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) =>
-                          setState(() => _documentType = value),
-                      validator: (value) => value == null
-                          ? 'Selecciona el tipo de documento'
-                          : null,
                     ),
+                    if (!_isFoundation) ...[
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        initialValue: _documentType,
+                        decoration: const InputDecoration(
+                          labelText: 'Tipo de documento',
+                          prefixIcon: Icon(Icons.badge_outlined),
+                        ),
+                        items: _documentTypes
+                            .map(
+                              (type) => DropdownMenuItem(
+                                value: type,
+                                child: Text(type),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) =>
+                            setState(() => _documentType = value),
+                        validator: (value) => value == null
+                            ? 'Selecciona el tipo de documento'
+                            : null,
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _documentController,
                       keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.next,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: const InputDecoration(
-                        labelText: 'Número de documento',
+                      decoration: InputDecoration(
+                        labelText: _isFoundation
+                            ? 'NIT'
+                            : 'Número de documento',
                         prefixIcon: Icon(Icons.numbers),
                       ),
-                      validator: (value) => _required(value, 'tu documento'),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: _gender,
-                      decoration: const InputDecoration(
-                        labelText: 'Género',
-                        prefixIcon: Icon(Icons.people_outline),
+                      validator: (value) => _required(
+                        value,
+                        _isFoundation ? 'el NIT' : 'tu documento',
                       ),
-                      items: _genders
-                          .map(
-                            (gender) => DropdownMenuItem(
-                              value: gender,
-                              child: Text(gender),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) => setState(() => _gender = value),
-                      validator: (value) =>
-                          value == null ? 'Selecciona tu género' : null,
                     ),
+                    if (!_isFoundation) ...[
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        initialValue: _gender,
+                        decoration: const InputDecoration(
+                          labelText: 'Género',
+                          prefixIcon: Icon(Icons.people_outline),
+                        ),
+                        items: _genders
+                            .map(
+                              (gender) => DropdownMenuItem(
+                                value: gender,
+                                child: Text(gender),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) => setState(() => _gender = value),
+                        validator: (value) =>
+                            value == null ? 'Selecciona tu género' : null,
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _emailController,
@@ -272,6 +314,110 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountTypeSelector extends StatelessWidget {
+  const _AccountTypeSelector({
+    required this.isFoundation,
+    required this.onChanged,
+  });
+
+  final bool isFoundation;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '¿Cómo quieres participar?',
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 6),
+        const Text('Elige el tipo de cuenta que mejor describe tu propósito.'),
+        const SizedBox(height: 14),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _AccountTypeCard(
+                icon: Icons.favorite_outline_rounded,
+                title: 'Soy donante',
+                description: 'Quiero apoyar causas',
+                selected: !isFoundation,
+                onTap: () => onChanged(false),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _AccountTypeCard(
+                icon: Icons.volunteer_activism_outlined,
+                title: 'Soy fundación',
+                description: 'Quiero recibir aportes',
+                selected: isFoundation,
+                onTap: () => onChanged(true),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountTypeCard extends StatelessWidget {
+  const _AccountTypeCard({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppColors.paleGreen : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: selected ? AppColors.forest : AppColors.border,
+          width: selected ? 2 : 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                icon,
+                color: selected ? AppColors.forest : AppColors.transparentGreen,
+              ),
+              const SizedBox(height: 10),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 3),
+              Text(
+                description,
+                style: const TextStyle(fontSize: 12, color: AppColors.charcoal),
+              ),
+            ],
           ),
         ),
       ),

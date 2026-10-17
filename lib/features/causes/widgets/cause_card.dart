@@ -30,15 +30,30 @@ class CauseCard extends StatelessWidget {
               children: [
                 Container(
                   height: compact ? 112 : 150,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: cause.colors,
-                    ),
-                  ),
                   child: Stack(
+                    fit: StackFit.expand,
                     children: [
+                      Image.network(
+                        cause.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: cause.colors),
+                          ),
+                        ),
+                      ),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.08),
+                              Colors.black.withValues(alpha: 0.48),
+                            ],
+                          ),
+                        ),
+                      ),
                       Positioned(
                         right: -12,
                         bottom: -20,
@@ -92,18 +107,23 @@ class CauseCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          cause.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              (compact
-                                      ? Theme.of(context).textTheme.titleSmall
-                                      : Theme.of(context).textTheme.titleMedium)
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    height: 1.2,
-                                  ),
+                        SizedBox(
+                          height: compact ? 38 : 48,
+                          child: Text(
+                            cause.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                (compact
+                                        ? Theme.of(context).textTheme.titleSmall
+                                        : Theme.of(context)
+                                              .textTheme
+                                              .titleMedium)
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.2,
+                                    ),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -155,14 +175,18 @@ class CauseCard extends StatelessWidget {
                           ),
                         ] else
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                '${_money(cause.raised)} recaudados',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
+                              Expanded(
+                                child: Text(
+                                  '${_money(cause.raised)} recaudados',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Text(
                                 '${(cause.progress * 100).round()}%',
                                 style: TextStyle(

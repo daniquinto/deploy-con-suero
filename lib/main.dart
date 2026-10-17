@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
+import 'core/theme/app_theme.dart';
+import 'core/widgets/app_feedback.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
 import 'features/causes/causes_screen.dart';
 import 'features/causes/create_cause_screen.dart';
+import 'features/causes/my_causes_screen.dart';
 import 'features/donations/my_donations_screen.dart';
+import 'features/donations/donation_status_screen.dart';
 import 'features/landing/landing_screen.dart';
 import 'features/profile/profile_screen.dart';
 
@@ -17,48 +21,32 @@ class App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF3759C7);
-
     return MaterialApp(
-      title: 'Mi App',
+      title: 'Mano Abierta',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: primaryColor),
-        scaffoldBackgroundColor: const Color(0xFFF7F8FC),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFDDE1EC)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFDDE1EC)),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size.fromHeight(52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ),
-      initialRoute: LandingScreen.routeName,
+      scaffoldMessengerKey: appScaffoldMessengerKey,
+      theme: AppTheme.light,
       routes: {
         LandingScreen.routeName: (_) => LandingScreen(),
         LoginScreen.routeName: (_) => const LoginScreen(),
         RegisterScreen.routeName: (_) => const RegisterScreen(),
         CausesScreen.routeName: (_) => const CausesScreen(),
         CreateCauseScreen.routeName: (_) => const CreateCauseScreen(),
+        MyCausesScreen.routeName: (_) => const MyCausesScreen(),
         MyDonationsScreen.routeName: (_) => const MyDonationsScreen(),
         ProfileScreen.routeName: (_) => const ProfileScreen(),
+      },
+      onGenerateRoute: (settings) {
+        final name = settings.name ?? '';
+        const prefix = '/donacion/';
+        if (name.startsWith(prefix)) {
+          final donationId = name.substring(prefix.length).split('?').first;
+          return MaterialPageRoute(
+            builder: (_) => DonationStatusScreen(donationId: donationId),
+            settings: settings,
+          );
+        }
+        return null;
       },
     );
   }

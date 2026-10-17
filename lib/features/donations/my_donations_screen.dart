@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../causes/causes_screen.dart';
-import '../profile/profile_screen.dart';
+import '../../core/widgets/app_drawer.dart';
 import 'donations_service.dart';
 
 class MyDonationsScreen extends StatefulWidget {
@@ -14,6 +14,7 @@ class MyDonationsScreen extends StatefulWidget {
 }
 
 class _MyDonationsScreenState extends State<MyDonationsScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _donations = DonationsService().getMyDonations();
   String _filter = 'Todas';
 
@@ -42,6 +43,8 @@ class _MyDonationsScreenState extends State<MyDonationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: const AppDrawer(),
       appBar: AppBar(title: const Text('Mis donaciones')),
       body: CustomScrollView(
         slivers: [
@@ -117,7 +120,7 @@ class _MyDonationsScreenState extends State<MyDonationsScreen> {
           if (index == 0) {
             Navigator.pushReplacementNamed(context, CausesScreen.routeName);
           } else if (index == 2) {
-            Navigator.pushReplacementNamed(context, ProfileScreen.routeName);
+            _scaffoldKey.currentState?.openDrawer();
           }
         },
         destinations: const [
@@ -159,7 +162,7 @@ class _Summary extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         gradient: const LinearGradient(
-          colors: [Color(0xFF142B6F), Color(0xFF167D91)],
+          colors: [Color(0xFF174F42), Color(0xFF397B68)],
         ),
       ),
       child: Column(
@@ -168,7 +171,7 @@ class _Summary extends StatelessWidget {
           const Text(
             'TU IMPACTO',
             style: TextStyle(
-              color: Color(0xFFA6EEF0),
+              color: Color(0xFFE9A46F),
               fontWeight: FontWeight.w800,
               letterSpacing: 1.2,
               fontSize: 12,

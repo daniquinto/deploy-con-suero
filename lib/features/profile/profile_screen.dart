@@ -4,6 +4,7 @@ import '../auth/login_screen.dart';
 import '../causes/causes_screen.dart';
 import '../donations/my_donations_screen.dart';
 import 'profile_service.dart';
+import '../../core/widgets/app_drawer.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -15,6 +16,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _service = ProfileService();
   late Future<UserProfile> _profile;
   bool _impactNotifications = true;
@@ -137,6 +139,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: const AppDrawer(profileSelected: true),
       appBar: AppBar(title: const Text('Mi perfil')),
       body: FutureBuilder<UserProfile>(
         future: _profile,
@@ -239,6 +243,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               context,
               MyDonationsScreen.routeName,
             );
+          } else if (index == 2) {
+            _scaffoldKey.currentState?.openDrawer();
           }
         },
         destinations: const [

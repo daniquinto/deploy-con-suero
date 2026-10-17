@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../donations/my_donations_screen.dart';
-import '../profile/profile_screen.dart';
+import '../../core/widgets/app_drawer.dart';
 import 'cause_detail_screen.dart';
 import 'causes_service.dart';
 import 'widgets/cause_card.dart';
+import '../../core/theme/app_theme.dart';
 
 class CausesScreen extends StatefulWidget {
   const CausesScreen({super.key});
@@ -16,6 +17,7 @@ class CausesScreen extends StatefulWidget {
 }
 
 class _CausesScreenState extends State<CausesScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _causes = CausesService().getCauses();
   String _selectedCategory = 'Todas';
 
@@ -41,6 +43,8 @@ class _CausesScreenState extends State<CausesScreen> {
     ];
 
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Row(
           mainAxisSize: MainAxisSize.min,
@@ -110,7 +114,9 @@ class _CausesScreenState extends State<CausesScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
             sliver: SliverLayoutBuilder(
               builder: (context, constraints) {
-                final columns = constraints.crossAxisExtent >= 900
+                final columns = constraints.crossAxisExtent >= 1200
+                    ? 4
+                    : constraints.crossAxisExtent >= 900
                     ? 3
                     : constraints.crossAxisExtent >= 600
                     ? 2
@@ -144,7 +150,7 @@ class _CausesScreenState extends State<CausesScreen> {
               MyDonationsScreen.routeName,
             );
           } else if (index == 2) {
-            Navigator.pushReplacementNamed(context, ProfileScreen.routeName);
+            _scaffoldKey.currentState?.openDrawer();
           }
         },
         destinations: const [
@@ -182,11 +188,11 @@ class _HeroBanner extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF142B6F), Color(0xFF167D91)],
+          colors: [AppColors.forest, AppColors.transparentGreen],
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x29142B6F),
+            color: Color(0x29174F42),
             blurRadius: 24,
             offset: Offset(0, 12),
           ),
@@ -205,7 +211,7 @@ class _HeroBanner extends StatelessWidget {
               const Text(
                 'CAUSA DESTACADA',
                 style: TextStyle(
-                  color: Color(0xFF9EE6E8),
+                  color: AppColors.peach,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.2,
                   fontSize: 12,
@@ -234,7 +240,7 @@ class _HeroBanner extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, 44),
                   backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF142B6F),
+                  foregroundColor: AppColors.forest,
                 ),
                 child: const Text('Conocer la causa'),
               ),

@@ -4,8 +4,11 @@ import '../causes/cause_detail_screen.dart';
 import '../causes/causes_service.dart';
 import '../causes/causes_screen.dart';
 import '../causes/create_cause_screen.dart';
+import '../causes/my_causes_screen.dart';
 import '../donations/my_donations_screen.dart';
 import '../profile/profile_screen.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_feedback.dart';
 import 'auth_service.dart';
 import 'register_screen.dart';
 
@@ -26,6 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _hidePassword = true;
+  UserRole _role = UserRole.donor;
 
   @override
   void dispose() {
@@ -51,18 +55,44 @@ class _LoginScreenState extends State<LoginScreen> {
       await _authService.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        role: _role,
       );
       if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        CausesScreen.routeName,
-        (route) => false,
-      );
+      final destination = _role == UserRole.donor
+          ? CausesScreen.routeName
+          : MyCausesScreen.routeName;
+      Navigator.pushNamedAndRemoveUntil(context, destination, (route) => false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        appScaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text(
+              _role == UserRole.donor
+                  ? '¡Bienvenido a Mano Abierta, donante!'
+                  : '¡Bienvenida a Mano Abierta, fundación!',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No fue posible iniciar sesión')),
+      _emailController.clear();
+      _passwordController.clear();
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        LoginScreen.routeName,
+        (route) => false,
       );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        appScaffoldMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No fue posible iniciar sesión. Verifica el correo, la contraseña y el tipo de cuenta.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -83,25 +113,42 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Icon(
-                      Icons.lock_person_rounded,
+                      Icons.volunteer_activism_rounded,
                       size: 64,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'Bienvenido',
+                      'Bienvenido a Mano Abierta',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Ingresa tus datos para continuar',
+                      'Cuando ayudar importa, cada segundo cuenta.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyLarge
                           ?.copyWith(color: Colors.black54),
                     ),
                     const SizedBox(height: 32),
+                    _LoginRoleSelector(
+                      role: _role,
+                      onChanged: (role) => setState(() => _role = role),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      _role == UserRole.donor
+                          ? 'Demo: donador@gmail.com / password'
+                          : 'Demo: fundacion@gmail.com / password',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.transparentGreen,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -181,10 +228,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     OutlinedButton.icon(
-                      onPressed: () => Navigator.pushNamed(
-                        context,
-                        CausesScreen.routeName,
-                      ),
+                      onPressed: () =>
+                          Navigator.pushNamed(context, CausesScreen.routeName),
                       icon: const Icon(Icons.explore_outlined),
                       label: const Text('Ver catálogo de causas'),
                     ),
@@ -222,10 +267,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
-                      onPressed: () => Navigator.pushNamed(
-                        context,
-                        ProfileScreen.routeName,
-                      ),
+                      onPressed: () =>
+                          Navigator.pushNamed(context, ProfileScreen.routeName),
                       icon: const Icon(Icons.person_outline_rounded),
                       label: const Text('Ver mi perfil'),
                     ),
@@ -235,6 +278,39 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _LoginRoleSelector extends StatelessWidget {
+  const _LoginRoleSelector({required this.role, required this.onChanged});
+
+  final UserRole role;
+  final ValueChanged<UserRole> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<UserRole>(
+      segments: const [
+        ButtonSegment(
+          value: UserRole.donor,
+          icon: Icon(Icons.favorite_outline_rounded),
+          label: Text('Donante'),
+        ),
+        ButtonSegment(
+          value: UserRole.foundation,
+          icon: Icon(Icons.volunteer_activism_outlined),
+          label: Text('Fundación'),
+        ),
+      ],
+      selected: {role},
+      onSelectionChanged: (selection) => onChanged(selection.first),
+      style: ButtonStyle(
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(vertical: 14),
+        ),
+        side: const WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
       ),
     );
   }
