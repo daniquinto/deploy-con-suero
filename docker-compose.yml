@@ -6,9 +6,20 @@ services:
     build: .
     container_name: backend
     restart: unless-stopped
+    # Configuracion de Open Payments: el .env no se hornea en la imagen,
+    # se inyecta al contenedor en tiempo de arranque.
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       PORT: 3000
+      # Pisa OP_PRIVATE_KEY_PATH del .env: dentro del contenedor la llave
+      # privada es un secreto montado de solo lectura.
+      OP_PRIVATE_KEY_PATH: /run/secrets/op_private_key
+    volumes:
+      # El archivo DEBE existir antes del `up`, o Docker crea un directorio
+      # con ese nombre y el arranque falla con "no es un PEM PKCS#8".
+      - ./secrets/private.key:/run/secrets/op_private_key:ro
     ports:
       - "${HOST_PORT:-3000}:3000"
     healthcheck:
